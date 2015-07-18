@@ -1,58 +1,59 @@
 /*
-(c) Copyright Ascensio System SIA 2010-2014
-
-This program is a free software product.
-You can redistribute it and/or modify it under the terms 
-of the GNU Affero General Public License (AGPL) version 3 as published by the Free Software
-Foundation. In accordance with Section 7(a) of the GNU AGPL its Section 15 shall be amended
-to the effect that Ascensio System SIA expressly excludes the warranty of non-infringement of 
-any third-party rights.
-
-This program is distributed WITHOUT ANY WARRANTY; without even the implied warranty 
-of MERCHANTABILITY or FITNESS FOR A PARTICULAR  PURPOSE. For details, see 
-the GNU AGPL at: http://www.gnu.org/licenses/agpl-3.0.html
-
-You can contact Ascensio System SIA at Lubanas st. 125a-25, Riga, Latvia, EU, LV-1021.
-
-The  interactive user interfaces in modified source and object code versions of the Program must 
-display Appropriate Legal Notices, as required under Section 5 of the GNU AGPL version 3.
- 
-Pursuant to Section 7(b) of the License you must retain the original Product logo when 
-distributing the program. Pursuant to Section 7(e) we decline to grant you any rights under 
-trademark law for use of our trademarks.
- 
-All the Product's GUI elements, including illustrations and icon sets, as well as technical writing
-content are licensed under the terms of the Creative Commons Attribution-ShareAlike 4.0
-International. See the License terms at http://creativecommons.org/licenses/by-sa/4.0/legalcode
+ *
+ * (c) Copyright Ascensio System Limited 2010-2015
+ *
+ * This program is freeware. You can redistribute it and/or modify it under the terms of the GNU 
+ * General Public License (GPL) version 3 as published by the Free Software Foundation (https://www.gnu.org/copyleft/gpl.html). 
+ * In accordance with Section 7(a) of the GNU GPL its Section 15 shall be amended to the effect that 
+ * Ascensio System SIA expressly excludes the warranty of non-infringement of any third-party rights.
+ *
+ * THIS PROGRAM IS DISTRIBUTED WITHOUT ANY WARRANTY; WITHOUT EVEN THE IMPLIED WARRANTY OF MERCHANTABILITY OR
+ * FITNESS FOR A PARTICULAR PURPOSE. For more details, see GNU GPL at https://www.gnu.org/copyleft/gpl.html
+ *
+ * You can contact Ascensio System SIA by email at sales@onlyoffice.com
+ *
+ * The interactive user interfaces in modified source and object code versions of ONLYOFFICE must display 
+ * Appropriate Legal Notices, as required under Section 5 of the GNU GPL version 3.
+ *
+ * Pursuant to Section 7 § 3(b) of the GNU GPL you must retain the original ONLYOFFICE logo which contains 
+ * relevant author attributions when distributing the software. If the display of the logo in its graphic 
+ * form is not reasonably feasible for technical reasons, you must include the words "Powered by ONLYOFFICE" 
+ * in every copy of the program you distribute. 
+ * Pursuant to Section 7 § 3(e) we decline to grant you any rights under trademark law for use of our trademarks.
+ *
 */
 
+
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Web;
 using System.Web.Configuration;
 using ASC.Collections;
+using ASC.Core;
 using ASC.Core.Users;
 using ASC.Data.Storage;
 using ASC.Data.Storage.S3;
 using ASC.Files.Core;
 using ASC.Files.Core.Data;
+using ASC.Files.Core.Security;
 using ASC.Thrdparty.Configuration;
 using ASC.Web.Core;
 using ASC.Web.Files.Resources;
 using ASC.Web.Files.Utils;
+using ASC.Web.Studio.Core;
 using ASC.Web.Studio.Core.Users;
 using ASC.Web.Studio.Utility;
-using Microsoft.Practices.ServiceLocation;
-using Newtonsoft.Json.Linq;
-using File = ASC.Files.Core.File;
-using ASC.Files.Core.Security;
-using ASC.Core;
-using System.Collections.Generic;
 using log4net;
+using Microsoft.Practices.Unity;
+using Microsoft.Practices.Unity.Configuration;
+using Newtonsoft.Json.Linq;
 using Constants = ASC.Core.Configuration.Constants;
+using File = ASC.Files.Core.File;
 
 namespace ASC.Web.Files.Classes
 {
@@ -60,13 +61,17 @@ namespace ASC.Web.Files.Classes
     {
         static Global()
         {
-            const StringComparison cmp = StringComparison.InvariantCultureIgnoreCase;
-
-            EnableUploadFilter = Boolean.TrueString.Equals(WebConfigurationManager.AppSettings["files.upload-filter"] ?? "false", cmp);
-
-            EnableEmbedded = Boolean.TrueString.Equals(WebConfigurationManager.AppSettings["files.docservice.embedded"] ?? "true", cmp);
-
-            BitlyUrl = KeyStorage.Get("bitly-url");
+            try
+            {
+                var container = new UnityContainer();
+                container.LoadConfiguration("files");
+                DaoFactory = container.Resolve<IDaoFactory>() ?? new DaoFactory();
+            }
+            catch (Exception error)
+            {
+                Logger.Warn("Could not resolve IDaoFactory instance. Using default DaoFactory instead.", error);
+                DaoFactory = new DaoFactory();
+            }
         }
 
         #region Property
@@ -75,15 +80,24 @@ namespace ASC.Web.Files.Classes
 
         public static readonly Regex InvalidTitleChars = new Regex("[@#$%&*\\+:;\"'<>?|\\\\/]");
 
-        public static bool EnableUploadFilter { get; private set; }
+        public static bool EnableUploadFilter
+        {
+            get { return Boolean.TrueString.Equals(WebConfigurationManager.AppSettings["files.upload-filter"] ?? "false", StringComparison.InvariantCultureIgnoreCase); }
+        }
 
-        public static bool EnableEmbedded { get; private set; }
-
-        public static string BitlyUrl { get; private set; }
+        public static bool EnableEmbedded
+        {
+            get { return Boolean.TrueString.Equals(WebConfigurationManager.AppSettings["files.docservice.embedded"] ?? "true", StringComparison.InvariantCultureIgnoreCase); }
+        }
 
         public static bool IsAdministrator
         {
             get { return FileSecurity.IsAdministrator(SecurityContext.CurrentAccount.ID); }
+        }
+
+        public static bool IsOutsider
+        {
+            get { return CoreContext.UserManager.GetUsers(SecurityContext.CurrentAccount.ID).IsOutsider(); }
         }
 
         public static string GetDocDbKey()
@@ -134,22 +148,19 @@ namespace ASC.Web.Files.Classes
         {
             get
             {
-                if (SecurityContext.IsAuthenticated)
+                if (!SecurityContext.IsAuthenticated) return 0;
+                if (CoreContext.UserManager.GetUsers(SecurityContext.CurrentAccount.ID).IsVisitor()) return 0;
+
+                var cacheKey = string.Format("my/{0}/{1}", TenantProvider.CurrentTenantID, SecurityContext.CurrentAccount.ID);
+
+                object myFolderId;
+                if (!UserRootFolderCache.TryGetValue(cacheKey, out myFolderId))
                 {
-                    if (CoreContext.UserManager.GetUsers(SecurityContext.CurrentAccount.ID).IsVisitor())
-                        return 0;
-
-                    var cacheKey = string.Format("my/{0}/{1}", TenantProvider.CurrentTenantID, SecurityContext.CurrentAccount.ID);
-
-                    object myFolderId;
-                    if (!UserRootFolderCache.TryGetValue(cacheKey, out myFolderId))
-                    {
-                        myFolderId = GetFolderIdAndProccessFirstVisit(true);
+                    myFolderId = GetFolderIdAndProccessFirstVisit(true);
+                    if (!Equals(myFolderId, 0))
                         UserRootFolderCache[cacheKey] = myFolderId;
-                    }
-                    return myFolderId;
                 }
-                return 0;
+                return myFolderId;
             }
         }
 
@@ -166,7 +177,8 @@ namespace ASC.Web.Files.Classes
                 if (!CommonFolderCache.TryGetValue(TenantProvider.CurrentTenantID, out commonFolderId))
                 {
                     commonFolderId = GetFolderIdAndProccessFirstVisit(false);
-                    CommonFolderCache[TenantProvider.CurrentTenantID] = commonFolderId;
+                    if (!Equals(commonFolderId, 0))
+                        CommonFolderCache[TenantProvider.CurrentTenantID] = commonFolderId;
                 }
                 return commonFolderId;
             }
@@ -180,6 +192,7 @@ namespace ASC.Web.Files.Classes
             get
             {
                 if (CoreContext.Configuration.Personal) return null;
+                if (IsOutsider) return null;
 
                 object sharedFolderId;
                 if (!ShareFolderCache.TryGetValue(TenantProvider.CurrentTenantID, out sharedFolderId))
@@ -204,6 +217,8 @@ namespace ASC.Web.Files.Classes
         {
             get
             {
+                if (IsOutsider) return null;
+
                 var cacheKey = string.Format("trash/{0}/{1}", TenantProvider.CurrentTenantID, SecurityContext.CurrentAccount.ID);
 
                 object trashFolderId;
@@ -226,21 +241,7 @@ namespace ASC.Web.Files.Classes
             get { return LogManager.GetLogger("ASC.Files"); }
         }
 
-        public static IDaoFactory DaoFactory
-        {
-            get
-            {
-                try
-                {
-                    return ServiceLocator.Current.GetInstance<IDaoFactory>();
-                }
-                catch (Exception error)
-                {
-                    Logger.Error("Could not resolve IDaoFactory instance. Using default DaoFactory instead.", error);
-                    return new DaoFactory();
-                }                
-            }
-        }
+        public static IDaoFactory DaoFactory { get; private set; }
 
         public static IDataStore GetStore()
         {
@@ -249,7 +250,7 @@ namespace ASC.Web.Files.Classes
 
         public static IDataStore GetStoreTemplate()
         {
-            return StorageFactory.GetStorage(String.Empty, FileConstant.StorageDomainTemplate);
+            return StorageFactory.GetStorage(String.Empty, FileConstant.StorageTemplate);
         }
 
         public static FileSecurity GetFilesSecurity()
@@ -296,7 +297,7 @@ namespace ASC.Web.Files.Classes
             {
                 var id = my ? folderDao.GetFolderIDUser(false) : folderDao.GetFolderIDCommon(false);
 
-                if (Equals(id, 0)) //TODO: think about 'null'
+                if (Equals(id, 0) && (!CoreContext.Configuration.Standalone || WarmUp.Instance.Completed)) //TODO: think about 'null'
                 {
                     id = my ? folderDao.GetFolderIDUser(true) : folderDao.GetFolderIDCommon(true);
 
@@ -304,33 +305,34 @@ namespace ASC.Web.Files.Classes
                     try
                     {
                         var path = string.Empty;
-                        IDataStore storeTemp = null;
+                        IDataStore storeTemplate = null;
                         if (my)
                         {
                             var partner = CoreContext.PaymentManager.GetApprovedPartner();
                             if (partner != null)
                             {
-                                storeTemp = StorageFactory.GetStorage(partner.Id, "startdocuments");
-                                if (!storeTemp.IsDirectory(path)
-                                    || storeTemp.ListFilesRelative("", path, "*", false).Length == 0)
+                                path = FileConstant.StoragePartnerDocuments + "/" + partner.Id + "/";
+                                storeTemplate = StorageFactory.GetStorage(string.Empty, FileConstant.StoragePartnerDocuments);
+                                if (!storeTemplate.IsDirectory(path)
+                                    || storeTemplate.ListFilesRelative("", path, "*", false).Length == 0)
                                 {
-                                    storeTemp = null;
+                                    storeTemplate = null;
                                 }
                             }
                         }
 
-                        if (storeTemp == null)
+                        if (storeTemplate == null)
                         {
-                            storeTemp = GetStoreTemplate();
+                            storeTemplate = GetStoreTemplate();
                             var culture = my ? CoreContext.UserManager.GetUsers(SecurityContext.CurrentAccount.ID).GetCulture() : CoreContext.TenantManager.GetCurrentTenant().GetCulture();
 
-                            path = FileConstant.StartDocPath + culture.TwoLetterISOLanguageName + "/";
-                            if (!storeTemp.IsDirectory(path))
+                            path = FileConstant.StartDocPath + culture + "/";
+                            if (!storeTemplate.IsDirectory(path))
                                 path = FileConstant.StartDocPath + "default/";
                             path += my ? "my/" : "corporate/";
                         }
 
-                        SaveStartDocument(folderDao, fileDao, id, path, storeTemp);
+                        SaveStartDocument(folderDao, fileDao, id, path, storeTemplate);
                     }
                     catch (Exception ex)
                     {
@@ -342,26 +344,26 @@ namespace ASC.Web.Files.Classes
             }
         }
 
-        private static void SaveStartDocument(IFolderDao folderDao, IFileDao fileDao, object folderId, string path, IDataStore storeTemp)
+        private static void SaveStartDocument(IFolderDao folderDao, IFileDao fileDao, object folderId, string path, IDataStore storeTemplate)
         {
-            foreach (var file in storeTemp.ListFilesRelative("", path, "*", false))
+            foreach (var file in storeTemplate.ListFilesRelative("", path, "*", false))
             {
-                SaveFile(fileDao, folderId, path + file, storeTemp);
+                SaveFile(fileDao, folderId, path + file, storeTemplate);
             }
 
-            if (storeTemp is S3Storage) return;
+            if (storeTemplate is S3Storage) return;
 
-            foreach (var folderUri in storeTemp.List(path, false))
+            foreach (var folderUri in storeTemplate.List(path, false))
             {
                 var folderName = Path.GetFileName(folderUri.ToString());
 
-                var subFolder = folderDao.SaveFolder(new Folder
+                var subFolderId = folderDao.SaveFolder(new Folder
                     {
                         Title = folderName,
                         ParentFolderID = folderId
                     });
 
-                SaveStartDocument(folderDao, fileDao, subFolder.ID, path + folderName + "/", storeTemp);
+                SaveStartDocument(folderDao, fileDao, subFolderId, path + folderName + "/", storeTemplate);
             }
         }
 
@@ -397,68 +399,49 @@ namespace ASC.Web.Files.Classes
             using (var folderDao = DaoFactory.GetFolderDao())
             {
                 var path = folderDao.GetBunchObjectID(fileEntry.RootFolderId);
-
                 var projectID = path.Split('/').Last();
-
-                if (String.IsNullOrEmpty(projectID)) return new List<Guid>();
-
-                var apiUrl = String.Format("project/{0}/team.json", projectID);
-
-                JToken responseApi;
-                try
+                if (!string.IsNullOrEmpty(projectID))
                 {
-                    responseApi = JObject.Parse(GetApiResponse(apiUrl))["response"];
+                    var json = GetApiResponse(CommonLinkUtility.GetFullAbsolutePath(string.Format("{0}project/{1}/team.json", SetupInfo.WebApiBaseUrl, projectID)));
+                    if (!string.IsNullOrEmpty(json))
+                    {
+                        var responseApi = JToken.Parse(json)["response"];
+                        if (responseApi is JArray)
+                        {
+                            return responseApi.Children()
+                                .Where(x => x["canReadFiles"].Value<bool>())
+                                .Select(x => new Guid(x["id"].Value<String>()))
+                                .Where(id => id != SecurityContext.CurrentAccount.ID);
+                        }
+                    }
                 }
-                catch (Exception ex)
-                {
-                    Logger.Error(ex);
-                    return new List<Guid>();
-                }
-
-                if (!(responseApi is JArray)) return new List<Guid>();
-
-                return responseApi.Children()
-                                  .Where(x => x["canReadFiles"].Value<bool>())
-                                  .Select(x => new Guid(x["id"].Value<String>()))
-                                  .Where(id => id != SecurityContext.CurrentAccount.ID);
+                return new List<Guid>();
             }
         }
 
         private static string GetApiResponse(string apiUrl)
         {
-            var requestUriBuilder = new UriBuilder(HttpContext.Current != null ? HttpContext.Current.Request.Url.Scheme : Uri.UriSchemeHttp,
-                                                   CoreContext.TenantManager.GetCurrentTenant().TenantDomain);
-
-            apiUrl = string.Format("{0}/{1}", WebConfigurationManager.AppSettings["api.url"].Trim('~', '/'), apiUrl.TrimStart('/'));
-
-            if (CoreContext.TenantManager.GetCurrentTenant().TenantAlias == "localhost")
+            try
             {
-                var virtualDir = WebConfigurationManager.AppSettings["core.virtual-dir"];
-
-                if (string.IsNullOrEmpty(virtualDir))
-                    virtualDir = "asc";
-
-                apiUrl = virtualDir.Trim('/') + "/" + apiUrl;
+                using (var webClient = new WebClient())
+                {
+                    webClient.Headers.Add("Authorization", GetAuthCookie());
+                    var data = webClient.DownloadData(apiUrl);
+                    if (data != null)
+                    {
+                        return Encoding.UTF8.GetString(data);
+                    }
+                }
             }
-
-            requestUriBuilder.Path = apiUrl;
-
-            var apiRequest = (HttpWebRequest)WebRequest.Create(requestUriBuilder.Uri);
-            apiRequest.AllowAutoRedirect = true;
-            apiRequest.CookieContainer = new CookieContainer();
-            apiRequest.CookieContainer.Add(new Cookie("asc_auth_key", GetAuthCookie(), "/", CoreContext.TenantManager.GetCurrentTenant().TenantDomain));
-
-            using (var apiResponse = (HttpWebResponse)apiRequest.GetResponse())
-            using (var respStream = apiResponse.GetResponseStream())
+            catch (Exception e)
             {
-                return respStream != null ? new StreamReader(respStream).ReadToEnd() : null;
+                Logger.ErrorFormat("User: {0} GetApiResponse({1}): {2}", SecurityContext.CurrentAccount.ID, apiUrl, e);
             }
-
+            return null;
         }
 
         private static string GetAuthCookie()
         {
-            //fake user authentication to create authentication cookie
             return SecurityContext.AuthenticateMe(SecurityContext.CurrentAccount.ID);
         }
     }

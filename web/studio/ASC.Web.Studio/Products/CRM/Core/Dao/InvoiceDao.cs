@@ -1,30 +1,28 @@
 /*
-(c) Copyright Ascensio System SIA 2010-2014
-
-This program is a free software product.
-You can redistribute it and/or modify it under the terms 
-of the GNU Affero General Public License (AGPL) version 3 as published by the Free Software
-Foundation. In accordance with Section 7(a) of the GNU AGPL its Section 15 shall be amended
-to the effect that Ascensio System SIA expressly excludes the warranty of non-infringement of 
-any third-party rights.
-
-This program is distributed WITHOUT ANY WARRANTY; without even the implied warranty 
-of MERCHANTABILITY or FITNESS FOR A PARTICULAR  PURPOSE. For details, see 
-the GNU AGPL at: http://www.gnu.org/licenses/agpl-3.0.html
-
-You can contact Ascensio System SIA at Lubanas st. 125a-25, Riga, Latvia, EU, LV-1021.
-
-The  interactive user interfaces in modified source and object code versions of the Program must 
-display Appropriate Legal Notices, as required under Section 5 of the GNU AGPL version 3.
- 
-Pursuant to Section 7(b) of the License you must retain the original Product logo when 
-distributing the program. Pursuant to Section 7(e) we decline to grant you any rights under 
-trademark law for use of our trademarks.
- 
-All the Product's GUI elements, including illustrations and icon sets, as well as technical writing
-content are licensed under the terms of the Creative Commons Attribution-ShareAlike 4.0
-International. See the License terms at http://creativecommons.org/licenses/by-sa/4.0/legalcode
+ *
+ * (c) Copyright Ascensio System Limited 2010-2015
+ *
+ * This program is freeware. You can redistribute it and/or modify it under the terms of the GNU 
+ * General Public License (GPL) version 3 as published by the Free Software Foundation (https://www.gnu.org/copyleft/gpl.html). 
+ * In accordance with Section 7(a) of the GNU GPL its Section 15 shall be amended to the effect that 
+ * Ascensio System SIA expressly excludes the warranty of non-infringement of any third-party rights.
+ *
+ * THIS PROGRAM IS DISTRIBUTED WITHOUT ANY WARRANTY; WITHOUT EVEN THE IMPLIED WARRANTY OF MERCHANTABILITY OR
+ * FITNESS FOR A PARTICULAR PURPOSE. For more details, see GNU GPL at https://www.gnu.org/copyleft/gpl.html
+ *
+ * You can contact Ascensio System SIA by email at sales@onlyoffice.com
+ *
+ * The interactive user interfaces in modified source and object code versions of ONLYOFFICE must display 
+ * Appropriate Legal Notices, as required under Section 5 of the GNU GPL version 3.
+ *
+ * Pursuant to Section 7 § 3(b) of the GNU GPL you must retain the original ONLYOFFICE logo which contains 
+ * relevant author attributions when distributing the software. If the display of the logo in its graphic 
+ * form is not reasonably feasible for technical reasons, you must include the words "Powered by ONLYOFFICE" 
+ * in every copy of the program you distribute. 
+ * Pursuant to Section 7 § 3(e) we decline to grant you any rights under trademark law for use of our trademarks.
+ *
 */
+
 
 using System;
 using System.Collections.Generic;
@@ -35,7 +33,6 @@ using ASC.Collections;
 using ASC.Common.Data;
 using ASC.Common.Data.Sql;
 using ASC.Common.Data.Sql.Expressions;
-using ASC.Core.Common.Logging;
 using ASC.Core.Tenants;
 using ASC.CRM.Core.Entities;
 using ASC.Web.CRM.Classes;
@@ -114,11 +111,8 @@ namespace ASC.CRM.Core.Dao
 
         public Boolean IsExist(int invoiceID, DbManager db)
         {
-            var q = new SqlExp(
-                    string.Format(@"select exists(select 1 from crm_invoice where tenant_id = {0} and id = {1})",
-                                TenantID,
-                                invoiceID));
-            return db.ExecuteScalar<bool>(q);
+            return db.ExecuteScalar<bool>(@"select exists(select 1 from crm_invoice where tenant_id = @tid and id = @id)",
+                new { tid = TenantID, id = invoiceID });
         }
 
         public Boolean IsExist(string number)
@@ -147,7 +141,7 @@ namespace ASC.CRM.Core.Dao
                 return db.ExecuteList(GetInvoiceSqlQuery(null, null)).ConvertAll(ToInvoice);
             }
         }
-        
+
         public virtual List<Invoice> GetByID(int[] ids)
         {
             using (var db = GetDb())
@@ -295,7 +289,7 @@ namespace ASC.CRM.Core.Dao
             var withParams = hasParams(searchText, status, issueDateFrom, issueDateTo, dueDateFrom, dueDateTo, entityType, entityID, currency);
 
             var whereConditional = WhereConditional(invoicesTableAlias, new List<int>(), searchText, status, issueDateFrom, issueDateTo, dueDateFrom, dueDateTo, entityType, entityID, currency);
-                // WhereConditional(CRMSecurity.GetPrivateItems(typeof(Invoice)).ToList(), searchText);
+            // WhereConditional(CRMSecurity.GetPrivateItems(typeof(Invoice)).ToList(), searchText);
 
             if (withParams && whereConditional == null)
                 return new List<Invoice>();
@@ -396,10 +390,10 @@ namespace ASC.CRM.Core.Dao
 
                     if (privateCount > countWithoutPrivate)
                     {
-                        _log.ErrorFormat(@"Private invoice count more than all cases. Tenant: {0}. CurrentAccount: {1}", 
-                                                               TenantID, 
+                        _log.ErrorFormat(@"Private invoice count more than all cases. Tenant: {0}. CurrentAccount: {1}",
+                                                               TenantID,
                                                                SecurityContext.CurrentAccount.ID);
-                 
+
                         privateCount = 0;
                     }
 
@@ -408,9 +402,11 @@ namespace ASC.CRM.Core.Dao
             }
 
             if (result > 0)
+            {
+                _cache.Remove(cacheKey);
                 _cache.Insert(cacheKey, result, new CacheDependency(null, new[] { _invoiceCacheKey }), Cache.NoAbsoluteExpiration,
                                       TimeSpan.FromSeconds(30));
-
+            }
             return result;
         }
 
@@ -469,14 +465,14 @@ namespace ASC.CRM.Core.Dao
 
                 if (!settings.Autogenerated)
                     return string.Empty;
-                
+
                 var query = Query("crm_invoice")
                     .Select("number")
                     .OrderBy("id", false)
                     .SetMaxResults(1);
 
                 var stringNumber = db.ExecuteScalar<string>(query);
-                
+
                 if (string.IsNullOrEmpty(stringNumber) || !stringNumber.StartsWith(settings.Prefix))
                     return string.Concat(settings.Prefix, settings.Number);
 
@@ -496,7 +492,7 @@ namespace ASC.CRM.Core.Dao
                 var nextNumber = intNumber + 1;
 
                 return settings.Prefix + (string.IsNullOrEmpty(format) ? nextNumber.ToString(CultureInfo.InvariantCulture) : nextNumber.ToString(format));
-            } 
+            }
         }
 
         public InvoiceSetting GetSettings()
@@ -510,6 +506,7 @@ namespace ASC.CRM.Core.Dao
 
         public virtual int SaveOrUpdateInvoice(Invoice invoice)
         {
+            _cache.Remove(_invoiceCacheKey);
             _cache.Insert(_invoiceCacheKey, String.Empty);
 
             using (var db = GetDb())
@@ -529,6 +526,9 @@ namespace ASC.CRM.Core.Dao
                 String.IsNullOrEmpty(invoice.Terms))
                 throw new ArgumentException();
 
+
+
+            invoice.PurchaseOrderNumber = !String.IsNullOrEmpty(invoice.PurchaseOrderNumber) ? invoice.PurchaseOrderNumber : String.Empty;
 
             if (!IsExist(invoice.ID, db))
             {
@@ -570,18 +570,14 @@ namespace ASC.CRM.Core.Dao
 
                 CRMSecurity.DemandEdit(oldInvoice);
 
-                if (oldInvoice.ContactID != invoice.ContactID) {
-                    oldInvoice.FileID = 0;
-                }
-
                 db.ExecuteNonQuery(
                     Update("crm_invoice")
-                        .Set("status", (int) invoice.Status)
+                        .Set("status", (int)invoice.Status)
                         .Set("issue_date", TenantUtil.DateTimeToUtc(invoice.IssueDate))
                         .Set("template_type", invoice.TemplateType)
                         .Set("contact_id", invoice.ContactID)
                         .Set("consignee_id", invoice.ConsigneeID)
-                        .Set("entity_type", (int) invoice.EntityType)
+                        .Set("entity_type", (int)invoice.EntityType)
                         .Set("entity_id", invoice.EntityID)
                         .Set("due_date", TenantUtil.DateTimeToUtc(invoice.DueDate))
                         .Set("language", invoice.Language)
@@ -591,7 +587,7 @@ namespace ASC.CRM.Core.Dao
                         .Set("terms", invoice.Terms)
                         .Set("description", invoice.Description)
                         .Set("json_data", null)
-                        .Set("file_id", oldInvoice.FileID)
+                        .Set("file_id", 0)
                         .Set("last_modifed_on", DateTime.UtcNow)
                         .Set("last_modifed_by", SecurityContext.CurrentAccount.ID)
                         .Where(Exp.Eq("id", invoice.ID)));
@@ -620,7 +616,8 @@ namespace ASC.CRM.Core.Dao
                 foreach (var id in invoiceids)
                 {
                     var inv = UpdateInvoiceStatus(id, status, db);
-                    if (inv != null) {
+                    if (inv != null)
+                    {
                         invoices.Add(inv);
                     }
                 }
@@ -631,13 +628,15 @@ namespace ASC.CRM.Core.Dao
         private Invoice UpdateInvoiceStatus(int invoiceid, InvoiceStatus status, DbManager db)
         {
             var invoice = GetByID(invoiceid, db);
-            if (invoice == null) {
+            if (invoice == null)
+            {
                 _log.Error("Invoice not found");
                 return null;
             }
             CRMSecurity.DemandAccessTo(invoice);
 
-            if (!invoiceStatusMap.Contains(new KeyValuePair<InvoiceStatus, InvoiceStatus>(invoice.Status, status))){
+            if (!invoiceStatusMap.Contains(new KeyValuePair<InvoiceStatus, InvoiceStatus>(invoice.Status, status)))
+            {
                 _log.ErrorFormat("Status for invoice with ID={0} can't be changed. Return without changes", invoiceid);
                 return invoice;
             }
@@ -675,7 +674,22 @@ namespace ASC.CRM.Core.Dao
 
         public void UpdateInvoiceJsonData(Invoice invoice, int billingAddressID, int deliveryAddressID)
         {
-            invoice.JsonData = JsonConvert.SerializeObject(InvoiceFormattedData.GetData(invoice, billingAddressID, deliveryAddressID));
+            var jsonData = InvoiceFormattedData.GetData(invoice, billingAddressID, deliveryAddressID);
+            if (jsonData.LogoBase64Id != 0)
+            {
+                jsonData.LogoBase64 = null;
+            }
+            invoice.JsonData = JsonConvert.SerializeObject(jsonData);
+            Global.DaoFactory.GetInvoiceDao().UpdateInvoiceJsonData(invoice.ID, invoice.JsonData);
+        }
+
+        public void UpdateInvoiceJsonDataAfterLinesUpdated(Invoice invoice)
+        {
+            var jsonData = InvoiceFormattedData.GetDataAfterLinesUpdated(invoice);
+            if (jsonData.LogoBase64Id != 0)
+            {
+                jsonData.LogoBase64 = null;
+            }
             Global.DaoFactory.GetInvoiceDao().UpdateInvoiceJsonData(invoice.ID, invoice.JsonData);
         }
 
@@ -707,8 +721,6 @@ namespace ASC.CRM.Core.Dao
 
             SettingsManager.Instance.SaveSettings(tenantSettings, TenantProvider.CurrentTenantID);
 
-            AdminLog.PostAction("CRM Settings: saved crm invoice settings to \"{0:Json}\"", tenantSettings.InvoiceSetting);
-
             return tenantSettings.InvoiceSetting;
         }
 
@@ -727,6 +739,7 @@ namespace ASC.CRM.Core.Dao
             CRMSecurity.DemandDelete(invoice);
 
             // Delete relative  keys
+            _cache.Remove(_invoiceCacheKey);
             _cache.Insert(_invoiceCacheKey, String.Empty);
 
             DeleteBatchInvoicesExecute(new List<Invoice> { invoice });
@@ -740,6 +753,7 @@ namespace ASC.CRM.Core.Dao
             if (!invoices.Any()) return invoices;
 
             // Delete relative  keys
+            _cache.Remove(_invoiceCacheKey);
             _cache.Insert(_invoiceCacheKey, String.Empty);
 
             DeleteBatchInvoicesExecute(invoices);
@@ -747,7 +761,8 @@ namespace ASC.CRM.Core.Dao
             return invoices;
         }
 
-        private void DeleteBatchInvoicesExecute(List<Invoice> invoices) {
+        private void DeleteBatchInvoicesExecute(List<Invoice> invoices)
+        {
 
             var invoiceID = invoices.Select(x => x.ID).ToArray();
 
@@ -796,34 +811,31 @@ namespace ASC.CRM.Core.Dao
             };
         }
 
-        private SqlQuery GetInvoiceSqlQuery(Exp where,  String alias)
+        private SqlQuery GetInvoiceSqlQuery(Exp where, String alias)
         {
-            var sqlQuery = Query("crm_invoice");
+            var q = Query("crm_invoice");
 
-            if (!String.IsNullOrEmpty(alias))
+            if (!string.IsNullOrEmpty(alias))
             {
-                sqlQuery = new SqlQuery(String.Concat("crm_invoice ", alias))
-                           .Where(Exp.Eq(alias + ".tenant_id", TenantID));
-                sqlQuery.Select(GetInvoiceColumnsTable(alias));
+                q = new SqlQuery("crm_invoice " + alias)
+                    .Where(alias + ".tenant_id", TenantID);
+                q.Select(GetInvoiceColumnsTable(alias));
 
             }
             else
             {
-                sqlQuery.Select(GetInvoiceColumnsTable(String.Empty));
+                q.Select(GetInvoiceColumnsTable(String.Empty));
             }
 
             if (where != null)
-                sqlQuery.Where(where);
+                q.Where(where);
 
-            return sqlQuery;
+            return q;
         }
 
         private String[] GetInvoiceColumnsTable(String alias)
         {
-           if (!String.IsNullOrEmpty(alias))
-                alias = alias + ".";
-
-            var result = new List<String>
+            var result = new string[]
                              {
                                 "id",
                                 "status",
@@ -849,9 +861,7 @@ namespace ASC.CRM.Core.Dao
                                 "last_modifed_by"
                              };
 
-            if (String.IsNullOrEmpty(alias)) return result.ToArray();
-
-            return result.ConvertAll(item => String.Concat(alias, item)).ToArray();
+            return string.IsNullOrEmpty(alias) ? result : result.Select(c => alias + "." + c).ToArray();
         }
 
         private Exp WhereConditional(String tblAlias,
@@ -866,10 +876,10 @@ namespace ASC.CRM.Core.Dao
                                 int entityID,
                                 String currency)
         {
-            var tblAliasPrefix = !String.IsNullOrEmpty(tblAlias) ? tblAlias + ".": "";
+            var tblAliasPrefix = !String.IsNullOrEmpty(tblAlias) ? tblAlias + "." : "";
             var conditions = new List<Exp>();
 
-             if (entityID > 0)
+            if (entityID > 0)
                 switch (entityType)
                 {
                     case EntityType.Contact:
@@ -883,8 +893,6 @@ namespace ASC.CRM.Core.Dao
                                        Exp.Eq(tblAliasPrefix + "entity_type", (int)entityType));
                         break;
                 }
-
-            var ids = new List<int>();
 
             if (status != null)
             {
@@ -909,7 +917,7 @@ namespace ASC.CRM.Core.Dao
                     //    if (ids.Count == 0) return null;
                     //}
                     //else
-                        conditions.Add(BuildLike(new[] { tblAliasPrefix + "number", tblAliasPrefix + "description" }, keywords));
+                    conditions.Add(BuildLike(new[] { tblAliasPrefix + "number", tblAliasPrefix + "description" }, keywords));
             }
 
             if (exceptIDs.Count > 0)
@@ -932,7 +940,8 @@ namespace ASC.CRM.Core.Dao
             else if (dueDateTo != DateTime.MinValue)
                 conditions.Add(Exp.Le(tblAliasPrefix + "due_date", TenantUtil.DateTimeToUtc(dueDateTo.AddDays(1).AddMinutes(-1))));
 
-            if (!String.IsNullOrEmpty(currency)) {
+            if (!String.IsNullOrEmpty(currency))
+            {
                 conditions.Add(Exp.Eq(tblAliasPrefix + "currency", currency));
             }
 

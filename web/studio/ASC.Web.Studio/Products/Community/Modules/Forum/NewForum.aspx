@@ -19,6 +19,14 @@
                         <input class="textEdit" style="width: 100%;" type="text" id="forum_fmCategoryName" value="" />
                     </div>
                 </div>
+                <div class="headerPanel-splitter" id="forum_fmCaregoryDescriptionBox">
+                    <div class="headerPanelSmall-splitter">
+                        <b><%=ASC.Web.Community.Forum.Resources.ForumResource.ThreadCategoryDescription%>:</b>
+                    </div>
+                    <div>
+                        <textarea style="width: 100%; height: 100px;" id="forum_fmCategoryDescription"></textarea>
+                    </div>
+                </div>
                 <div class="headerPanel-splitter requiredField">
                     <span class="requiredErrorText"></span>
                     <div class="headerPanelSmall-splitter headerPanelSmall">
@@ -37,12 +45,12 @@
                     </div>
                 </div>
                 <div class="big-button-container">
-                    <a class="button blue big" href="javascript:ForumMakerProvider.SaveThreadCategory();">
+                    <a id="createThreadCategoryBth" class="button blue big" onclick="ForumMakerProvider.SaveThreadCategory();">
                         <%=ASC.Web.Community.Forum.Resources.ForumResource.CreateButton%>
                     </a>
                     <span class="splitter-buttons"></span>
-                    <a class="button gray big" onclick="javascript:ForumManager.BlockButtons(); ForumManager.CancelForum('<%=""%>')" href="#">
-                            <%=ASC.Web.Community.Forum.Resources.ForumResource.CancelButton%>
+                    <a class="button gray big" onclick="ForumManager.BlockButtons(); ForumManager.CancelForum('<%=""%>')">
+                        <%=ASC.Web.Community.Forum.Resources.ForumResource.CancelButton%>
                     </a>
                 </div>                
             </div>

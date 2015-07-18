@@ -40,13 +40,13 @@
         </tbody>
     </table>
     <div id="invoiceActionMenu" class="studio-action-panel">
-        <div class="corner-top right"></div>
         <ul class="dropdown-content">
             <li><a class="showProfileLink dropdown-item"><%= CRMInvoiceResource.ShowInvoiceProfile %></a></li>
+            <li><a class="showProfileLinkNewTab dropdown-item"><%= CRMInvoiceResource.ShowInvoiceProfileNewTab %></a></li>
             <% if (Global.CanDownloadInvoices) { %>
             <li><a class="downloadLink dropdown-item"><%= CRMInvoiceResource.Download %></a></li>
             <% } %>
-            <% if (false) { %>
+            <% if (!MobileVer) { %>
             <li><a class="printLink dropdown-item"><%= CRMInvoiceResource.Print %></a></li>
             <% } %>
             <% if (Global.CanDownloadInvoices) { %>
@@ -63,7 +63,6 @@
 </div>
 
 <div id="dealDetailsMenuPanel" class="studio-action-panel">
-    <div class="corner-top left"></div>
     <ul class="dropdown-content">
         <li>
             <a class="dropdown-item" href="<%= String.Format("deals.aspx?action=manage&id={0}", TargetDeal.ID) %>"

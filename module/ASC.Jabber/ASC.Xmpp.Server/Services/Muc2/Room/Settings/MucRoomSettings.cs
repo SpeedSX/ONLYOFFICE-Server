@@ -1,30 +1,28 @@
 /*
-(c) Copyright Ascensio System SIA 2010-2014
-
-This program is a free software product.
-You can redistribute it and/or modify it under the terms 
-of the GNU Affero General Public License (AGPL) version 3 as published by the Free Software
-Foundation. In accordance with Section 7(a) of the GNU AGPL its Section 15 shall be amended
-to the effect that Ascensio System SIA expressly excludes the warranty of non-infringement of 
-any third-party rights.
-
-This program is distributed WITHOUT ANY WARRANTY; without even the implied warranty 
-of MERCHANTABILITY or FITNESS FOR A PARTICULAR  PURPOSE. For details, see 
-the GNU AGPL at: http://www.gnu.org/licenses/agpl-3.0.html
-
-You can contact Ascensio System SIA at Lubanas st. 125a-25, Riga, Latvia, EU, LV-1021.
-
-The  interactive user interfaces in modified source and object code versions of the Program must 
-display Appropriate Legal Notices, as required under Section 5 of the GNU AGPL version 3.
- 
-Pursuant to Section 7(b) of the License you must retain the original Product logo when 
-distributing the program. Pursuant to Section 7(e) we decline to grant you any rights under 
-trademark law for use of our trademarks.
- 
-All the Product's GUI elements, including illustrations and icon sets, as well as technical writing
-content are licensed under the terms of the Creative Commons Attribution-ShareAlike 4.0
-International. See the License terms at http://creativecommons.org/licenses/by-sa/4.0/legalcode
+ *
+ * (c) Copyright Ascensio System Limited 2010-2015
+ *
+ * This program is freeware. You can redistribute it and/or modify it under the terms of the GNU 
+ * General Public License (GPL) version 3 as published by the Free Software Foundation (https://www.gnu.org/copyleft/gpl.html). 
+ * In accordance with Section 7(a) of the GNU GPL its Section 15 shall be amended to the effect that 
+ * Ascensio System SIA expressly excludes the warranty of non-infringement of any third-party rights.
+ *
+ * THIS PROGRAM IS DISTRIBUTED WITHOUT ANY WARRANTY; WITHOUT EVEN THE IMPLIED WARRANTY OF MERCHANTABILITY OR
+ * FITNESS FOR A PARTICULAR PURPOSE. For more details, see GNU GPL at https://www.gnu.org/copyleft/gpl.html
+ *
+ * You can contact Ascensio System SIA by email at sales@onlyoffice.com
+ *
+ * The interactive user interfaces in modified source and object code versions of ONLYOFFICE must display 
+ * Appropriate Legal Notices, as required under Section 5 of the GNU GPL version 3.
+ *
+ * Pursuant to Section 7 § 3(b) of the GNU GPL you must retain the original ONLYOFFICE logo which contains 
+ * relevant author attributions when distributing the software. If the display of the logo in its graphic 
+ * form is not reasonably feasible for technical reasons, you must include the words "Powered by ONLYOFFICE" 
+ * in every copy of the program you distribute. 
+ * Pursuant to Section 7 § 3(e) we decline to grant you any rights under trademark law for use of our trademarks.
+ *
 */
+
 
 // --------------------------------------------------------------------------------------------------------------------
 // <copyright company="" file="MucRoomSettings.cs">
@@ -35,22 +33,18 @@ International. See the License terms at http://creativecommons.org/licenses/by-s
 // </summary>
 // --------------------------------------------------------------------------------------------------------------------
 
-using ASC.Xmpp.Core;
 using ASC.Xmpp.Core.protocol;
 using ASC.Xmpp.Core.protocol.iq.disco;
 using ASC.Xmpp.Core.protocol.x.data;
 using ASC.Xmpp.Core.protocol.x.muc;
 using ASC.Xmpp.Core.utils.Xml.Dom;
+using ASC.Xmpp.Server.Services.Muc2.Room.Member;
+using System;
+using System.Collections.Generic;
+using System.Text;
 
 namespace ASC.Xmpp.Server.Services.Muc2.Room.Settings
 {
-    using System;
-    using System.Collections.Generic;
-    using System.Text;
-    using Member;
-    using Storage;
-
-
     /// <summary>
     /// </summary>
     public class MucRoomSettings
@@ -193,12 +187,14 @@ namespace ASC.Xmpp.Server.Services.Muc2.Room.Settings
 
         internal string GetMemberList()
         {
-            if (Members == null || Members.Count == 0) return null;
-
             var builder = new StringBuilder();
-            foreach (var member in Members)
+            lock (Members)
             {
-                builder.AppendFormat("{0};", member.ToString());
+                if (Members == null || Members.Count == 0) return null;
+                foreach (var member in Members)
+                {
+                    builder.AppendFormat("{0};", member.ToString());
+                }
             }
             return builder.ToString();
         }
@@ -372,11 +368,14 @@ namespace ASC.Xmpp.Server.Services.Muc2.Room.Settings
 
         internal MucRoomMemberInfo GetMemberInfo(Jid jid)
         {
-            foreach (MucRoomMemberInfo memberInfo in Members)
+            lock (Members)
             {
-                if (Equals(memberInfo.Jid.Bare, jid.Bare))
+                foreach (MucRoomMemberInfo memberInfo in Members)
                 {
-                    return memberInfo;
+                    if (Equals(memberInfo.Jid.Bare, jid.Bare))
+                    {
+                        return memberInfo;
+                    }
                 }
             }
             return null;
@@ -397,7 +396,10 @@ namespace ASC.Xmpp.Server.Services.Muc2.Room.Settings
             if (info == null)
             {
                 info = new MucRoomMemberInfo();
-                Members.Add(info);
+                lock (Members)
+                {
+                    Members.Add(info);
+                }
             }
             info.Jid = new Jid(jid.Bare);
             info.Affiliation = affiliation;

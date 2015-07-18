@@ -1,7 +1,6 @@
 <%@ Assembly Name="ASC.Web.Studio" %>
 <%@ Assembly Name="ASC.Web.Projects" %>
 <%@ Import Namespace="ASC.Web.Projects.Resources" %>
-<%@ Import Namespace="ASC.Web.Projects.Classes" %>
 <%@ Control Language="C#" AutoEventWireup="true" CodeBehind="TaskAction.ascx.cs"
     Inherits="ASC.Web.Projects.Controls.Tasks.TaskAction" %>
 <%@ Register TagPrefix="sc" Namespace="ASC.Web.Studio.Controls.Common" Assembly="ASC.Web.Studio" %>
@@ -16,14 +15,13 @@
                 <span class="requiredErrorText title" error="<%= TaskResource.EachTaskMustHaveTitle%>">
                 </span>
                 <div class="headerPanelSmall">
-                    <b>
-                        <%= TaskResource.TaskTitle%>:</b>
+                    <%= TaskResource.TaskTitle%>:
                 </div>
                 <input id="addtask_title" class="textEdit" maxlength="250" />
             </div>
             <div class="block-cnt-splitter">
                 <div class="headerPanelSmall">
-                    <b><%= TaskResource.TaskDescription%>:</b>
+                    <%= TaskResource.TaskDescription%>:
                 </div>
                 <textarea style="width: 99%; resize: none; max-height: 200px" id="addtask_description"
                     cols="22" rows="3"></textarea>

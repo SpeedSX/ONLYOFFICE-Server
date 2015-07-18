@@ -1,4 +1,4 @@
-<%@ Assembly Name="ASC.Web.Community.Forum"%>
+<%@ Assembly Name="ASC.Web.Community"%>
 <%@ Control Language="C#" AutoEventWireup="true" CodeBehind="PostControl.ascx.cs" Inherits="ASC.Web.UserControls.Forum.PostControl" %>
 <%@ Import Namespace="ASC.Web.UserControls.Forum" %>
 <%@ Import Namespace="ASC.Web.Studio.Utility" %>
@@ -34,7 +34,7 @@
         </div>
         <%=RenderEditedData()%>
         <div id="forum_message_<%=Post.ID%>" class="<%=_messageCSSClass%>">
-           <%=HtmlUtility.GetFull(Post.Text, _settings.ProductID)%>
+           <%=HtmlUtility.GetFull(Post.Text)%>
         </div>
         <%=PostControl.AttachmentsList(this.Post, SettingsID)%>
         <div style="padding:5px;"><%=ControlButtons()%></div>

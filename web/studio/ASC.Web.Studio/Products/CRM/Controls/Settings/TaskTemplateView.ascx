@@ -2,16 +2,16 @@
 <%@ Assembly Name="ASC.Web.Studio" %>
 <%@ Assembly Name="ASC.Web.Core" %>
 <%@ Control Language="C#" AutoEventWireup="true" CodeBehind="TaskTemplateView.ascx.cs" Inherits="ASC.Web.CRM.Controls.Settings.TaskTemplateView" %>
-<%@ Import Namespace="ASC.Web.Core.Utility.Skins" %>
-<%@ Import Namespace="ASC.Web.CRM.Configuration" %>
+
 <%@ Import Namespace="ASC.Web.CRM.Resources" %>
-<%@ Register TagPrefix="vs" Namespace="ASC.Web.Studio.UserControls.Common.ViewSwitcher" Assembly="ASC.Web.Studio" %>
 <%@ Register TagPrefix="sc" Namespace="ASC.Web.Studio.Controls.Common" Assembly="ASC.Web.Studio" %>
 
 <div>
     <a class="link dotline plus" onclick="ASC.CRM.TaskTemplateView.showTemplateConatainerPanel();" >
         <%= CRMSettingResource.AddNewTaskTemplateContainer%>
     </a>
+
+    <div id="TaskTemplateViewTabs"></div>
 </div>
 
 <div id="templateConatainerPanel" style="display: none">
@@ -122,17 +122,6 @@
         </body>
     </sc:Container>
 </div>
-
-<vs:ViewSwitcher runat="server" ID="_switcherEntityType">
-    <vs>
-        <vs:ViewSwitcherLinkItem runat="server" id="_switcherItemAllContacts"></vs:ViewSwitcherLinkItem>
-        <vs:ViewSwitcherLinkItem runat="server" id="_switcherItemPersons"></vs:ViewSwitcherLinkItem>
-        <vs:ViewSwitcherLinkItem runat="server" id="_switcherItemCompanies"></vs:ViewSwitcherLinkItem>
-        <vs:ViewSwitcherLinkItem runat="server" id="_switcherItemDeals"></vs:ViewSwitcherLinkItem>
-        <vs:ViewSwitcherLinkItem runat="server" id="_switcherItemrCases"></vs:ViewSwitcherLinkItem>
-    </vs>
-</vs:ViewSwitcher>
-<br />
 
 
 <ul id="templateConatainerContent" class="clearFix">

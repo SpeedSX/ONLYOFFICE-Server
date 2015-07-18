@@ -16,7 +16,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-touch-fullscreen" content="yes" />
 
-    <link rel="icon" href="~/favicon.ico" type="image/x-icon" />
+   <%= string.Format("<link href='{0}' rel='icon' type='image/x-icon' id='docsEditorFavicon'/>", ASC.Web.Core.CoBranding.TenantLogoManager.GetFavicon(true, true)) %>
     <title>ONLYOFFICE™</title>
 
     <style type="text/css">
@@ -55,25 +55,7 @@
         <master:EditorScripts runat="server" />
         <sc:InlineScript ID="InlineScripts" runat="server" />
 
-        <% if (ItsTry)
-           { %>
-        <asp:PlaceHolder runat="server" ID="CommonPlaceHolder" />
-        <% } %>
-
         <script language="javascript" type="text/javascript" src="<%= DocServiceApiUrl %>"></script>
-        
-        <% if (AddCustomScript)
-           { %>
-        <script type="text/javascript">
-            try {
-                if (window._gat) {
-                    _gaq.push(['_setAccount', 'UA-12442749-17']);
-                    _gaq.push(['_trackPageview', 'Try_Docs']);
-                }
-            } catch (err) {
-            }
-        </script>
-        <% } %>
     </form>
 </body>
 </html>

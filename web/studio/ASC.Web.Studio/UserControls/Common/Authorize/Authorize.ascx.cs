@@ -1,41 +1,37 @@
 /*
-(c) Copyright Ascensio System SIA 2010-2014
-
-This program is a free software product.
-You can redistribute it and/or modify it under the terms 
-of the GNU Affero General Public License (AGPL) version 3 as published by the Free Software
-Foundation. In accordance with Section 7(a) of the GNU AGPL its Section 15 shall be amended
-to the effect that Ascensio System SIA expressly excludes the warranty of non-infringement of 
-any third-party rights.
-
-This program is distributed WITHOUT ANY WARRANTY; without even the implied warranty 
-of MERCHANTABILITY or FITNESS FOR A PARTICULAR  PURPOSE. For details, see 
-the GNU AGPL at: http://www.gnu.org/licenses/agpl-3.0.html
-
-You can contact Ascensio System SIA at Lubanas st. 125a-25, Riga, Latvia, EU, LV-1021.
-
-The  interactive user interfaces in modified source and object code versions of the Program must 
-display Appropriate Legal Notices, as required under Section 5 of the GNU AGPL version 3.
- 
-Pursuant to Section 7(b) of the License you must retain the original Product logo when 
-distributing the program. Pursuant to Section 7(e) we decline to grant you any rights under 
-trademark law for use of our trademarks.
- 
-All the Product's GUI elements, including illustrations and icon sets, as well as technical writing
-content are licensed under the terms of the Creative Commons Attribution-ShareAlike 4.0
-International. See the License terms at http://creativecommons.org/licenses/by-sa/4.0/legalcode
+ *
+ * (c) Copyright Ascensio System Limited 2010-2015
+ *
+ * This program is freeware. You can redistribute it and/or modify it under the terms of the GNU 
+ * General Public License (GPL) version 3 as published by the Free Software Foundation (https://www.gnu.org/copyleft/gpl.html). 
+ * In accordance with Section 7(a) of the GNU GPL its Section 15 shall be amended to the effect that 
+ * Ascensio System SIA expressly excludes the warranty of non-infringement of any third-party rights.
+ *
+ * THIS PROGRAM IS DISTRIBUTED WITHOUT ANY WARRANTY; WITHOUT EVEN THE IMPLIED WARRANTY OF MERCHANTABILITY OR
+ * FITNESS FOR A PARTICULAR PURPOSE. For more details, see GNU GPL at https://www.gnu.org/copyleft/gpl.html
+ *
+ * You can contact Ascensio System SIA by email at sales@onlyoffice.com
+ *
+ * The interactive user interfaces in modified source and object code versions of ONLYOFFICE must display 
+ * Appropriate Legal Notices, as required under Section 5 of the GNU GPL version 3.
+ *
+ * Pursuant to Section 7 § 3(b) of the GNU GPL you must retain the original ONLYOFFICE logo which contains 
+ * relevant author attributions when distributing the software. If the display of the logo in its graphic 
+ * form is not reasonably feasible for technical reasons, you must include the words "Powered by ONLYOFFICE" 
+ * in every copy of the program you distribute. 
+ * Pursuant to Section 7 § 3(e) we decline to grant you any rights under trademark law for use of our trademarks.
+ *
 */
+
 
 using ASC.Core;
 using ASC.Core.Caching;
 using ASC.Core.Users;
 using ASC.FederatedLogin.Profile;
+using ASC.IPSecurity;
 using ASC.MessagingSystem;
 using ASC.Security.Cryptography;
-using ASC.SingleSignOn.Common;
-using ASC.SingleSignOn.Saml;
 using ASC.Web.Core;
-using ASC.Web.Core.Utility.Settings;
 using ASC.Web.Studio.Core;
 using ASC.Web.Studio.Core.Import;
 using ASC.Web.Studio.Core.SMS;
@@ -44,7 +40,6 @@ using ASC.Web.Studio.UserControls.Users.UserProfile;
 using ASC.Web.Studio.Utility;
 using Resources;
 using System;
-using System.Linq;
 using System.Security.Authentication;
 using System.Threading;
 using System.Web;
@@ -56,7 +51,10 @@ namespace ASC.Web.Studio.UserControls.Common
     {
         protected string LoginMessage;
         private string _errorMessage;
-        private readonly ICache cache = new AspCache();
+        private readonly ICache cache = AscCache.Default;
+        protected bool EnableLdap = ActiveDirectoryUserImporter.LdapIsEnable;
+        protected bool EnableSso = SsoImporter.SsoIsEnable;
+        protected bool IsSaml = SsoImporter.IsSaml;
 
         protected string ErrorMessage
         {
@@ -109,7 +107,6 @@ namespace ASC.Web.Studio.UserControls.Common
             {
                 master.TopStudioPanel.DisableProductNavigation = true;
                 master.TopStudioPanel.DisableSearch = true;
-                master.TopStudioPanel.DisableVideo = true;
             }
 
             Page.Title = HeaderStringHelper.GetPageTitle(Resource.Authorization);
@@ -117,9 +114,15 @@ namespace ASC.Web.Studio.UserControls.Common
             pwdReminderHolder.Controls.Add(LoadControl(PwdTool.Location));
 
             var msg = Request["m"];
+            var urlError = Request.QueryString["error"];
+
             if (!string.IsNullOrEmpty(msg))
             {
                 ErrorMessage = msg;
+            }
+            else if (urlError == "ipsecurity")
+            {
+                ErrorMessage = Resource.LoginFailIPSecurityMsg;
             }
 
             var thirdPartyProfile = Request.Url.GetProfile();
@@ -131,7 +134,18 @@ namespace ASC.Web.Studio.UserControls.Common
                 {
                     if (thirdPartyProfile != null)
                     {
-                        HashId = thirdPartyProfile.HashId;
+                        if (string.IsNullOrEmpty(thirdPartyProfile.AuthorizationError))
+                        {
+                            HashId = thirdPartyProfile.HashId;
+                        }
+                        else
+                        {
+                            // ignore cancellation
+                            if (thirdPartyProfile.AuthorizationError != "Canceled at provider")
+                            {
+                                ErrorMessage = thirdPartyProfile.AuthorizationError;
+                            }
+                        }
                     }
                     else
                     {
@@ -161,9 +175,9 @@ namespace ASC.Web.Studio.UserControls.Common
 
                     if (string.IsNullOrEmpty(HashId))
                     {
-                        
+                        // защита от перебора: на 5-ый неправильный ввод делать Sleep
                         var counter = (int)(cache.Get("loginsec/" + Login) ?? 0);
-                        if (++counter%5 == 0)
+                        if (++counter % 5 == 0)
                         {
                             Thread.Sleep(TimeSpan.FromSeconds(10));
                         }
@@ -172,48 +186,57 @@ namespace ASC.Web.Studio.UserControls.Common
 
                     if (!ActiveDirectoryUserImporter.TryLdapAuth(Login, Password))
                     {
-                        smsLoginUrl = SmsLoginUrl(accountLink);
+                        smsLoginUrl = SmsLoginUrl();
                         if (string.IsNullOrEmpty(smsLoginUrl))
                         {
+                            var session = string.IsNullOrEmpty(Request["remember"]);
+
                             if (string.IsNullOrEmpty(HashId))
                             {
                                 var cookiesKey = SecurityContext.AuthenticateMe(Login, Password);
-                                CookiesManager.SetCookies(CookiesType.AuthKey, cookiesKey);
+                                CookiesManager.SetCookies(CookiesType.AuthKey, cookiesKey, session);
                                 MessageService.Send(HttpContext.Current.Request, MessageAction.LoginSuccess);
                             }
                             else
                             {
                                 Guid userId;
-                                tryByHash = TryByHashId(accountLink, HashId, out userId);
+                                tryByHash = LoginWithThirdParty.TryGetUserByHash(HashId, out userId);
                                 var cookiesKey = SecurityContext.AuthenticateMe(userId);
-                                CookiesManager.SetCookies(CookiesType.AuthKey, cookiesKey);
+                                CookiesManager.SetCookies(CookiesType.AuthKey, cookiesKey, session);
                                 MessageService.Send(HttpContext.Current.Request, MessageAction.LoginSuccessViaSocialAccount);
                             }
                         }
                     }
                 }
-                catch (InvalidCredentialException)
+                catch(InvalidCredentialException)
                 {
                     Auth.ProcessLogout();
                     ErrorMessage = tryByHash ? Resource.LoginWithAccountNotFound : Resource.InvalidUsernameOrPassword;
 
                     var loginName = tryByHash && !string.IsNullOrWhiteSpace(HashId)
-                        ? HashId
-                        : string.IsNullOrWhiteSpace(Login) ? AuditResource.EmailNotSpecified : Login;
+                                        ? HashId
+                                        : string.IsNullOrWhiteSpace(Login) ? AuditResource.EmailNotSpecified : Login;
                     var messageAction = tryByHash ? MessageAction.LoginFailSocialAccountNotFound : MessageAction.LoginFailInvalidCombination;
 
                     MessageService.Send(HttpContext.Current.Request, loginName, messageAction);
 
                     return;
                 }
-                catch (System.Security.SecurityException)
+                catch(System.Security.SecurityException)
                 {
                     Auth.ProcessLogout();
                     ErrorMessage = Resource.ErrorDisabledProfile;
                     MessageService.Send(HttpContext.Current.Request, Login, MessageAction.LoginFailDisabledProfile);
                     return;
                 }
-                catch (Exception ex)
+                catch(IPSecurityException)
+                {
+                    Auth.ProcessLogout();
+                    ErrorMessage = Resource.ErrorIpSecurity;
+                    MessageService.Send(HttpContext.Current.Request, Login, MessageAction.LoginFailIpSecurity);
+                    return;
+                }
+                catch(Exception ex)
                 {
                     Auth.ProcessLogout();
                     ErrorMessage = ex.Message;
@@ -240,34 +263,7 @@ namespace ASC.Web.Studio.UserControls.Common
             ProcessConfirmedEmailCondition();
         }
 
-        private static bool TryByHashId(AccountLinkControl accountLinkControl, string hashId, out Guid userId)
-        {
-            userId = Guid.Empty;
-            if (accountLinkControl == null || string.IsNullOrEmpty(hashId))
-            {
-                return false;
-            }
-
-            var accountsStrId = accountLinkControl.GetLinker().GetLinkedObjectsByHashId(hashId);
-            userId = accountsStrId
-                .Select(x =>
-                            {
-                                try
-                                {
-                                    return new Guid(x);
-                                }
-                                catch
-                                {
-                                    return Guid.Empty;
-                                }
-                            })
-                .Where(x => x != Guid.Empty)
-                .FirstOrDefault(x => CoreContext.UserManager.UserExists(x));
-
-            return true;
-        }
-
-        private string SmsLoginUrl(AccountLinkControl accountLinkControl)
+        private string SmsLoginUrl()
         {
             if (!StudioSmsNotificationSettings.IsVisibleSettings
                 || !StudioSmsNotificationSettings.Enable)
@@ -282,7 +278,7 @@ namespace ASC.Web.Studio.UserControls.Common
             else
             {
                 Guid userId;
-                TryByHashId(accountLinkControl, HashId, out userId);
+                LoginWithThirdParty.TryGetUserByHash(HashId, out userId);
                 user = CoreContext.UserManager.GetUsers(userId);
             }
 

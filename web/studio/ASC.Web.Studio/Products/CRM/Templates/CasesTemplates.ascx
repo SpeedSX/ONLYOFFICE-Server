@@ -1,8 +1,6 @@
 ﻿<%@ Control Language="C#" AutoEventWireup="false" EnableViewState="false" %>
 <%@ Assembly Name="ASC.Web.CRM" %>
 <%@ Assembly Name="ASC.Web.Core" %>
-<%@ Import Namespace="ASC.Web.CRM.Configuration" %>
-<%@ Import Namespace="ASC.Web.Core.Utility.Skins" %>
 <%@ Import Namespace="ASC.Web.CRM.Resources" %>
 
 <%--Cases List--%>
@@ -80,7 +78,6 @@
     </div>
 
     <div id="addTagCasesDialog" class="studio-action-panel addTagDialog">
-        <div class="corner-top left"></div>
         <ul class="dropdown-content mobile-overflow"></ul>
         <div class="h_line">&nbsp;</div>
         <div style="margin-bottom:5px;"><%= CRMCommonResource.CreateNewTag%>:</div>
@@ -99,9 +96,9 @@
     </div>
 
     <div id="caseActionMenu" class="studio-action-panel">
-        <div class="corner-top right"></div>
         <ul class="dropdown-content">
             <li><a class="showProfileLink dropdown-item"><%= CRMCasesResource.ShowCaseProfile%></a></li>
+            <li><a class="showProfileLinkNewTab dropdown-item"><%= CRMCasesResource.ShowCaseProfileNewTab%></a></li>
             <li><a class="setPermissionsLink dropdown-item"><%= CRMCommonResource.SetPermissions%></a></li>
             <li><a class="editCaseLink dropdown-item"><%= CRMCasesResource.EditCase %></a></li>
             <li><a class="deleteCaseLink dropdown-item"><%= CRMCasesResource.DeleteThisCase %></a></li>
@@ -121,8 +118,7 @@
         <td class="borderBase" style="padding: 0 0 0 6px;">
             <input type="checkbox" id="checkCase_${id}" onclick="ASC.CRM.ListCasesView.selectItem(this);"
                  {{if isChecked == true}}checked="checked"{{/if}} />
-            <img id="loaderImg_${id}" style="display:none;" alt=""
-                src="<%=WebImageSupplier.GetAbsoluteWebPath("loader_16.gif")%>" />
+            <div id="loaderImg_${id}" class="loader-middle baseList_loaderImg"></div>
         </td>
 
         <td class="borderBase">

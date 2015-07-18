@@ -1,30 +1,28 @@
 /*
-(c) Copyright Ascensio System SIA 2010-2014
-
-This program is a free software product.
-You can redistribute it and/or modify it under the terms 
-of the GNU Affero General Public License (AGPL) version 3 as published by the Free Software
-Foundation. In accordance with Section 7(a) of the GNU AGPL its Section 15 shall be amended
-to the effect that Ascensio System SIA expressly excludes the warranty of non-infringement of 
-any third-party rights.
-
-This program is distributed WITHOUT ANY WARRANTY; without even the implied warranty 
-of MERCHANTABILITY or FITNESS FOR A PARTICULAR  PURPOSE. For details, see 
-the GNU AGPL at: http://www.gnu.org/licenses/agpl-3.0.html
-
-You can contact Ascensio System SIA at Lubanas st. 125a-25, Riga, Latvia, EU, LV-1021.
-
-The  interactive user interfaces in modified source and object code versions of the Program must 
-display Appropriate Legal Notices, as required under Section 5 of the GNU AGPL version 3.
- 
-Pursuant to Section 7(b) of the License you must retain the original Product logo when 
-distributing the program. Pursuant to Section 7(e) we decline to grant you any rights under 
-trademark law for use of our trademarks.
- 
-All the Product's GUI elements, including illustrations and icon sets, as well as technical writing
-content are licensed under the terms of the Creative Commons Attribution-ShareAlike 4.0
-International. See the License terms at http://creativecommons.org/licenses/by-sa/4.0/legalcode
+ *
+ * (c) Copyright Ascensio System Limited 2010-2015
+ *
+ * This program is freeware. You can redistribute it and/or modify it under the terms of the GNU 
+ * General Public License (GPL) version 3 as published by the Free Software Foundation (https://www.gnu.org/copyleft/gpl.html). 
+ * In accordance with Section 7(a) of the GNU GPL its Section 15 shall be amended to the effect that 
+ * Ascensio System SIA expressly excludes the warranty of non-infringement of any third-party rights.
+ *
+ * THIS PROGRAM IS DISTRIBUTED WITHOUT ANY WARRANTY; WITHOUT EVEN THE IMPLIED WARRANTY OF MERCHANTABILITY OR
+ * FITNESS FOR A PARTICULAR PURPOSE. For more details, see GNU GPL at https://www.gnu.org/copyleft/gpl.html
+ *
+ * You can contact Ascensio System SIA by email at sales@onlyoffice.com
+ *
+ * The interactive user interfaces in modified source and object code versions of ONLYOFFICE must display 
+ * Appropriate Legal Notices, as required under Section 5 of the GNU GPL version 3.
+ *
+ * Pursuant to Section 7 § 3(b) of the GNU GPL you must retain the original ONLYOFFICE logo which contains 
+ * relevant author attributions when distributing the software. If the display of the logo in its graphic 
+ * form is not reasonably feasible for technical reasons, you must include the words "Powered by ONLYOFFICE" 
+ * in every copy of the program you distribute. 
+ * Pursuant to Section 7 § 3(e) we decline to grant you any rights under trademark law for use of our trademarks.
+ *
 */
+
 
 using System;
 using System.Collections.Generic;
@@ -39,6 +37,7 @@ using ASC.Core;
 using ASC.Web.Studio.Core.Users;
 using Newtonsoft.Json.Linq;
 using System.Web;
+using System.Text;
 
 namespace ASC.Web.CRM.Controls.Cases
 {
@@ -55,6 +54,8 @@ namespace ASC.Web.CRM.Controls.Cases
 
         protected bool HavePermission { get; set; }
 
+        private const string ErrorCookieKey = "save_cases_error";
+
         #endregion
 
         #region Events
@@ -69,8 +70,6 @@ namespace ASC.Web.CRM.Controls.Cases
             {
                 HavePermission = true;
             }
-
-            if (IsPostBack) return;
 
             if (TargetCase != null)
             {
@@ -95,6 +94,88 @@ namespace ASC.Web.CRM.Controls.Cases
                 InitPrivatePanel();
             }
             RegisterScript();
+        }
+
+        #endregion
+
+        #region Save Or Update Case
+
+        protected void SaveOrUpdateCase(Object sender, CommandEventArgs e)
+        {
+            try
+            {
+                int caseID;
+
+                if (TargetCase != null)
+                {
+                    caseID = TargetCase.ID;
+                    TargetCase.Title = Request["caseTitle"];
+                    Global.DaoFactory.GetCasesDao().UpdateCases(TargetCase);
+                    MessageService.Send(HttpContext.Current.Request, MessageAction.CaseUpdated, TargetCase.Title);
+                    SetPermission(TargetCase);
+                }
+                else
+                {
+                    caseID = Global.DaoFactory.GetCasesDao().CreateCases(Request["caseTitle"]);
+                    var newCase = Global.DaoFactory.GetCasesDao().GetByID(caseID);
+                    MessageService.Send(HttpContext.Current.Request, MessageAction.CaseCreated, newCase.Title);
+                    SetPermission(newCase);
+                }
+
+
+                Global.DaoFactory.GetCasesDao().SetMembers(caseID,
+                                                           !String.IsNullOrEmpty(Request["memberID"])
+                                                               ? Request["memberID"].Split(',').Select(
+                                                                   id => Convert.ToInt32(id)).ToArray()
+                                                               : new List<int>().ToArray());
+
+
+                var assignedTags = Request["baseInfo_assignedTags"];
+                if (assignedTags != null)
+                {
+                    var oldTagList = Global.DaoFactory.GetTagDao().GetEntityTags(EntityType.Case, caseID);
+                    foreach (var tag in oldTagList)
+                    {
+                        Global.DaoFactory.GetTagDao().DeleteTagFromEntity(EntityType.Case, caseID, tag);
+                    }
+                    if (assignedTags != string.Empty)
+                    {
+                        var tagListInfo = JObject.Parse(assignedTags)["tagListInfo"].ToArray();
+                        var newTagList = tagListInfo.Select(t => t.ToString()).ToArray();
+                        Global.DaoFactory.GetTagDao().SetTagToEntity(EntityType.Case, caseID, newTagList);
+                    }
+                }
+
+                foreach (var customField in Request.Form.AllKeys)
+                {
+                    if (!customField.StartsWith("customField_")) continue;
+                    int fieldID = Convert.ToInt32(customField.Split('_')[1]);
+                    string fieldValue = Request.Form[customField];
+
+                    if (String.IsNullOrEmpty(fieldValue) && TargetCase == null)
+                        continue;
+
+                    Global.DaoFactory.GetCustomFieldDao().SetFieldValue(EntityType.Case, caseID, fieldID, fieldValue);
+                }
+
+                Response.Redirect(string.Compare(e.CommandArgument.ToString(), "0", StringComparison.OrdinalIgnoreCase) == 0
+                                      ? string.Format("cases.aspx?id={0}", caseID)
+                                      : "cases.aspx?action=manage", false);
+                Context.ApplicationInstance.CompleteRequest();
+            }
+            catch (Exception ex)
+            {
+                log4net.LogManager.GetLogger("ASC.CRM").Error(ex);
+                var cookie = HttpContext.Current.Request.Cookies.Get(ErrorCookieKey);
+                if (cookie == null)
+                {
+                    cookie = new HttpCookie(ErrorCookieKey)
+                    {
+                        Value = ex.Message
+                    };
+                    HttpContext.Current.Response.Cookies.Add(cookie);
+                }
+            }
         }
 
         #endregion
@@ -126,68 +207,7 @@ namespace ASC.Web.CRM.Controls.Cases
             phPrivatePanel.Controls.Add(cntrlPrivatePanel);
         }
 
-        protected void SaveOrUpdateCase(Object sender, CommandEventArgs e)
-        {
-            int caseID;
-
-            if (TargetCase != null)
-            {
-                caseID = TargetCase.ID;
-                TargetCase.Title = Request["caseTitle"];
-                Global.DaoFactory.GetCasesDao().UpdateCases(TargetCase);
-                MessageService.Send(HttpContext.Current.Request, MessageAction.CaseUpdated, TargetCase.Title);
-                SetPermission(TargetCase);
-            }
-            else
-            {
-                caseID = Global.DaoFactory.GetCasesDao().CreateCases(Request["caseTitle"]);
-                var newCase = Global.DaoFactory.GetCasesDao().GetByID(caseID);
-                MessageService.Send(HttpContext.Current.Request, MessageAction.CaseCreated, newCase.Title);
-                SetPermission(newCase);
-            }
-
-
-            Global.DaoFactory.GetCasesDao().SetMembers(caseID,
-                                                       !String.IsNullOrEmpty(Request["memberID"])
-                                                           ? Request["memberID"].Split(',').Select(
-                                                               id => Convert.ToInt32(id)).ToArray()
-                                                           : new List<int>().ToArray());
-
-
-            var assignedTags = Request["baseInfo_assignedTags"];
-            if (assignedTags != null)
-            {
-                var oldTagList = Global.DaoFactory.GetTagDao().GetEntityTags(EntityType.Case, caseID);
-                foreach (var tag in oldTagList)
-                {
-                    Global.DaoFactory.GetTagDao().DeleteTagFromEntity(EntityType.Case, caseID, tag);
-                }
-                if (assignedTags != string.Empty)
-                {
-                    var tagListInfo = JObject.Parse(assignedTags)["tagListInfo"].ToArray();
-                    var newTagList = tagListInfo.Select(t => t.ToString()).ToArray();
-                    Global.DaoFactory.GetTagDao().SetTagToEntity(EntityType.Case, caseID, newTagList);
-                }
-            }
-
-            foreach (var customField in Request.Form.AllKeys)
-            {
-                if (!customField.StartsWith("customField_")) continue;
-                int fieldID = Convert.ToInt32(customField.Split('_')[1]);
-                string fieldValue = Request.Form[customField];
-
-                if (String.IsNullOrEmpty(fieldValue) && TargetCase == null)
-                    continue;
-
-                Global.DaoFactory.GetCustomFieldDao().SetFieldValue(EntityType.Case, caseID, fieldID, fieldValue);
-            }
-
-            Response.Redirect(string.Compare(e.CommandArgument.ToString(), "0", StringComparison.OrdinalIgnoreCase) == 0
-                                  ? string.Format("cases.aspx?id={0}", caseID)
-                                  : "cases.aspx?action=manage");
-        }
-
-        protected void SetPermission(ASC.CRM.Core.Entities.Cases caseItem)
+         protected void SetPermission(ASC.CRM.Core.Entities.Cases caseItem)
         {
             if (HavePermission)
             {
@@ -228,9 +248,12 @@ namespace ASC.Web.CRM.Controls.Cases
 
         private void RegisterScript()
         {
-            const string script = "ASC.CRM.CasesActionView.init();";
+            var sb = new StringBuilder();
 
-            Page.RegisterInlineScript(script);
+            sb.AppendFormat(@"ASC.CRM.CasesActionView.init(""{0}"");",
+                ErrorCookieKey);
+
+            Page.RegisterInlineScript(sb.ToString());
         }
 
         #endregion

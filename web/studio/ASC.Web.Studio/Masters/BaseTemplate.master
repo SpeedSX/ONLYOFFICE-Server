@@ -3,11 +3,14 @@
 <%@ Import Namespace="ASC.Core" %>
 <%@ Import Namespace="ASC.Web.Core.Mobile" %>
 <%@ Import Namespace="ASC.Web.Studio.Core" %>
+<%@ Import Namespace="ASC.Web.Studio.Utility" %>
 
 <%@ Register TagPrefix="client" Namespace="ASC.Web.Core.Client.Bundling" Assembly="ASC.Web.Core" %>
 <%@ Register TagPrefix="master" TagName="HeadStyles" Src="HeadStyles.ascx" %>
+<%@ Register TagPrefix="master" TagName="CommonStyles" Src="CommonStyles.ascx" %>
 <%@ Register TagPrefix="master" TagName="ThemeStyles" Src="ThemeStyles.ascx" %>
 <%@ Register TagPrefix="master" TagName="HeadScripts" Src="HeadScripts.ascx" %>
+<%@ Register TagPrefix="master" TagName="CommonBodyScripts" Src="CommonBodyScripts.ascx" %>
 <%@ Register TagPrefix="master" TagName="BodyScripts" Src="BodyScripts.ascx" %>
 <%@ Register TagPrefix="master" TagName="ClientLocalizationScript" Src="ClientLocalizationScript.ascx" %>
 <%@ Register TagPrefix="ucc" Namespace="ASC.Web.Studio.Controls.Common" Assembly="ASC.Web.Studio" %>
@@ -15,25 +18,58 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head runat="server">
+    <title>ONLYOFFICE™</title>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <link rel="icon" href="~/favicon.ico" type="image/x-icon" />
+
+    <meta name="keywords" id="MetaKeywords" content="" runat="server" />
+    <meta name="description" id="MetaDescription" content="" runat="server" />
+
+
+    <%= string.Format("<link href='{0}' rel='icon' type='image/x-icon' />", ASC.Web.Core.CoBranding.TenantLogoManager.GetFavicon(true, true)) %>
+
     <link href='https://fonts.googleapis.com/css?family=Open+Sans:900,800,700,600,500,400,300&subset=latin,cyrillic-ext,cyrillic,latin-ext' rel="stylesheet" type="text/css" />
-    <title>ONLYOFFICE™</title>
 
     <master:ThemeStyles ID="ThemeStyles" runat="server" CategoryName="common" />
+    <master:CommonStyles ID="CommonStyles" runat="server" />
     <master:HeadStyles ID="HeadStyles" runat="server" />
 
+    <%= RenderCustomScript() %>
     <asp:ContentPlaceHolder ID="HeaderContent" runat="server" />
 
     <ucc:FeedControl ID="feadControl" runat="server" Title="Teamlab Portal" ContentOnly="true" AutoFill="false" />
 </head>
 <body class="<%= ColorThemeClass %> <%= MobileDetector.IsMobile ? "mobile" : "" %>">
+
+ <% if (!CoreContext.Configuration.Standalone && !CoreContext.Configuration.Personal && SetupInfo.CustomScripts.Length != 0)
+       { %>
+
+<!-- Google Tag Manager -->
+<noscript><iframe src="//www.googletagmanager.com/ns.html?id=GTM-TZ7764"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'//www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-TZ7764');</script>
+<!-- End Google Tag Manager -->
+
+        <% if (ASC.Core.SecurityContext.IsAuthenticated)  %>
+        <% { %>
+                <script type="text/javascript" language="javascript">
+                    ga('create', 'UA-12442749-21', 'auto', { 'name': 'testTracker', 'userId': '<%=ASC.Core.SecurityContext.CurrentAccount.ID %>' });
+                    ga('testTracker.send', 'pageview');                   
+                </script>
+        <% } %>
+
+    <%} %>
+
+
     <form runat="server" id="Form" style="margin: 0; height: 100%; padding: 0;" enctype="multipart/form-data" method="post">
 
         <%= RenderStatRequest() %>
 
-        <div class="main-content">
+        <div class="main-content <%= string.IsNullOrEmpty(Request["ab"]) ? "" : "ab-testing" %>">
             <div id="studioPageContent">
                 <asp:ContentPlaceHolder runat="server" ID="TopContent" />
                 <div class="mainPageLayout">
@@ -45,6 +81,7 @@
                                 <td class="borderBase mainPageTableSidePanel">
                                     <div id="studio_sidePanel" class="<%=EnabledWebChat ? "sidepanel-with-chat" : ""  %>">
                                         <asp:ContentPlaceHolder ID="SidePanel" runat="server" />
+                                        <asp:PlaceHolder ID="InvitePanelHolder" runat="server" />
                                     </div>
                                     <asp:PlaceHolder ID="BannerHolder" runat="server" />
                                     <% if (EnabledWebChat && !IsMobile)
@@ -86,7 +123,6 @@
     </form>
 
     <master:HeadScripts ID="HeadScripts" runat="server" />
-    <%= RenderCustomScript() %>
 
     <master:ClientLocalizationScript ID="ClientLocalizationScript" runat="server" />
     <client:ClientScriptReference ID="baseTemplateMasterScripts" runat="server" />
@@ -94,12 +130,39 @@
     <asp:ContentPlaceHolder ID="clientTemplatesResourcesPlaceHolder" runat="server" />
 
     <ucc:InlineScript ID="InlineScriptBefore" runat="server" />
+    <master:CommonBodyScripts ID="CommonBodyScripts" runat="server" />
     <master:BodyScripts ID="BodyScripts" runat="server" />
     <ucc:InlineScript ID="InlineScript" runat="server" />
 
 
     <% if (!CoreContext.Configuration.Standalone && CoreContext.Configuration.Personal && SetupInfo.CustomScripts.Length != 0)
        { %>
+
+<!-- Yandex.Metrika counter -->
+<script type="text/javascript">
+(function (d, w, c) {
+    (w[c] = w[c] || []).push(function() {
+        try {
+            w.yaCounter23426227 = new Ya.Metrika({id:23426227,
+                    clickmap:true,
+                    trackHash:true});
+        } catch(e) { }
+    });
+
+    var n = d.getElementsByTagName("script")[0],
+        s = d.createElement("script"),
+        f = function () { n.parentNode.insertBefore(s, n); };
+    s.type = "text/javascript";
+    s.async = true;
+    s.src = (d.location.protocol == "https:" ? "https:" : "http:") + "//mc.yandex.ru/metrika/watch.js";
+
+    if (w.opera == "[object Opera]") {
+        d.addEventListener("DOMContentLoaded", f, false);
+    } else { f(); }
+})(document, window, "yandex_metrika_callbacks");
+</script>
+<noscript><div><img src="//mc.yandex.ru/watch/23426227" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+<!-- /Yandex.Metrika counter -->
 
     <% if(!SecurityContext.IsAuthenticated) { %>
     <!-- Google Code for Personal 2014 all_pages -->

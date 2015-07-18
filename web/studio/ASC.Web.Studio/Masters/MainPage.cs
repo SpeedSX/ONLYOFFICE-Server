@@ -1,34 +1,40 @@
 /*
-(c) Copyright Ascensio System SIA 2010-2014
-
-This program is a free software product.
-You can redistribute it and/or modify it under the terms 
-of the GNU Affero General Public License (AGPL) version 3 as published by the Free Software
-Foundation. In accordance with Section 7(a) of the GNU AGPL its Section 15 shall be amended
-to the effect that Ascensio System SIA expressly excludes the warranty of non-infringement of 
-any third-party rights.
-
-This program is distributed WITHOUT ANY WARRANTY; without even the implied warranty 
-of MERCHANTABILITY or FITNESS FOR A PARTICULAR  PURPOSE. For details, see 
-the GNU AGPL at: http://www.gnu.org/licenses/agpl-3.0.html
-
-You can contact Ascensio System SIA at Lubanas st. 125a-25, Riga, Latvia, EU, LV-1021.
-
-The  interactive user interfaces in modified source and object code versions of the Program must 
-display Appropriate Legal Notices, as required under Section 5 of the GNU AGPL version 3.
- 
-Pursuant to Section 7(b) of the License you must retain the original Product logo when 
-distributing the program. Pursuant to Section 7(e) we decline to grant you any rights under 
-trademark law for use of our trademarks.
- 
-All the Product's GUI elements, including illustrations and icon sets, as well as technical writing
-content are licensed under the terms of the Creative Commons Attribution-ShareAlike 4.0
-International. See the License terms at http://creativecommons.org/licenses/by-sa/4.0/legalcode
+ *
+ * (c) Copyright Ascensio System Limited 2010-2015
+ *
+ * This program is freeware. You can redistribute it and/or modify it under the terms of the GNU 
+ * General Public License (GPL) version 3 as published by the Free Software Foundation (https://www.gnu.org/copyleft/gpl.html). 
+ * In accordance with Section 7(a) of the GNU GPL its Section 15 shall be amended to the effect that 
+ * Ascensio System SIA expressly excludes the warranty of non-infringement of any third-party rights.
+ *
+ * THIS PROGRAM IS DISTRIBUTED WITHOUT ANY WARRANTY; WITHOUT EVEN THE IMPLIED WARRANTY OF MERCHANTABILITY OR
+ * FITNESS FOR A PARTICULAR PURPOSE. For more details, see GNU GPL at https://www.gnu.org/copyleft/gpl.html
+ *
+ * You can contact Ascensio System SIA by email at sales@onlyoffice.com
+ *
+ * The interactive user interfaces in modified source and object code versions of ONLYOFFICE must display 
+ * Appropriate Legal Notices, as required under Section 5 of the GNU GPL version 3.
+ *
+ * Pursuant to Section 7 § 3(b) of the GNU GPL you must retain the original ONLYOFFICE logo which contains 
+ * relevant author attributions when distributing the software. If the display of the logo in its graphic 
+ * form is not reasonably feasible for technical reasons, you must include the words "Powered by ONLYOFFICE" 
+ * in every copy of the program you distribute. 
+ * Pursuant to Section 7 § 3(e) we decline to grant you any rights under trademark law for use of our trademarks.
+ *
 */
 
-using AjaxPro;
+
+using System;
+using System.Collections.Specialized;
+using System.Configuration;
+using System.Text;
+using System.Threading;
+using System.Web;
+using System.Web.UI;
+
 using ASC.Core;
 using ASC.Core.Users;
+using ASC.FederatedLogin.Profile;
 using ASC.Geolocation;
 using ASC.Web.Core;
 using ASC.Web.Core.Utility.Settings;
@@ -37,13 +43,9 @@ using ASC.Web.Studio.Core.SMS;
 using ASC.Web.Studio.Core.Statistic;
 using ASC.Web.Studio.UserControls.Statistics;
 using ASC.Web.Studio.Utility;
+
+using AjaxPro;
 using log4net;
-using System;
-using System.Collections.Specialized;
-using System.Text;
-using System.Threading;
-using System.Web;
-using System.Web.UI;
 
 namespace ASC.Web.Studio
 {
@@ -56,6 +58,17 @@ namespace ASC.Web.Studio
 
         protected virtual bool MayNotPaid { get; set; }
 
+        protected virtual bool CheckWizardCompleted { get { return !CoreContext.Configuration.Standalone || WarmUp.Instance.Completed; } }
+
+        protected virtual bool RedirectToStartup
+        {
+            get
+            {
+                if(!CoreContext.Configuration.Standalone) return false;
+                return !WarmUp.Instance.Completed && Request.QueryString["warmup"] != "true";
+            }
+        }
+
         protected virtual bool MayPhoneNotActivate { get; set; }
 
         protected static ILog Log
@@ -65,7 +78,12 @@ namespace ASC.Web.Studio
 
         protected void Page_PreInit(object sender, EventArgs e)
         {
-            if (CoreContext.Configuration.Standalone && !(this is Wizard))
+            if(RedirectToStartup)
+            {
+                Response.Redirect("~/Startup.aspx");
+            }
+
+            if (CheckWizardCompleted)
             {
                 var s = SettingsManager.Instance.LoadSettings<WizardSettings>(TenantProvider.CurrentTenantID);
                 if (!s.Completed)
@@ -79,19 +97,27 @@ namespace ASC.Web.Studio
                 && !AuthByCookies()
                 && !MayNotAuth)
             {
-                var refererURL = GetRefererUrl();
-                Session["refererURL"] = refererURL;
-                Response.Redirect("~/auth.aspx", true);
+                if (SettingsManager.Instance.LoadSettings<TenantAccessSettings>(TenantProvider.CurrentTenantID).Anyone)
+                {
+                    OutsideAuth();
+                }
+                else
+                {
+                    var refererURL = GetRefererUrl();
+                    Session["refererURL"] = refererURL;
+                    Response.Redirect("~/auth.aspx", true);
+                }
             }
 
             if (!MayNotPaid && TenantStatisticsProvider.IsNotPaid())
             {
                 Response.Redirect(TenantExtra.GetTariffPageLink(), true);
             }
-            else if (SecurityContext.IsAuthenticated
-                     && StudioSmsNotificationSettings.IsVisibleSettings
-                     && StudioSmsNotificationSettings.Enable
-                     && !MayPhoneNotActivate)
+
+            if (SecurityContext.IsAuthenticated
+                && StudioSmsNotificationSettings.IsVisibleSettings
+                && StudioSmsNotificationSettings.Enable
+                && !MayPhoneNotActivate)
             {
                 var user = CoreContext.UserManager.GetUsers(SecurityContext.CurrentAccount.ID);
 
@@ -99,7 +125,7 @@ namespace ASC.Web.Studio
                     && (string.IsNullOrEmpty(user.MobilePhone)
                         || user.MobilePhoneActivationStatus == MobilePhoneActivationStatus.NotActivated))
                 {
-                    Response.Redirect(CommonLinkUtility.GetConfirmationUrl(user.Email, ConfirmType.PhoneActivation));
+                    Response.Redirect(CommonLinkUtility.GetConfirmationUrl(user.Email, ConfirmType.PhoneActivation), true);
                 }
             }
 
@@ -114,7 +140,7 @@ namespace ASC.Web.Studio
 
             if (webitem != null && (webitem.IsDisabled() || parentIsDisabled) && !MayNotAuth)
             {
-                if (webitem.ID == new Guid("{F4D98AFD-D336-4332-8778-3C6945C81EA0}")
+                if (webitem.ID == WebItemManager.PeopleProductID
                     && string.Equals(GetType().BaseType.FullName, "ASC.Web.People.Profile"))
                 {
                     Response.Redirect("~/my.aspx", true);
@@ -160,7 +186,7 @@ namespace ASC.Web.Studio
 
         private string GetRefererUrl()
         {
-            var refererURL = Request.Url.AbsoluteUri;
+            var refererURL = Request.GetUrlRewriter().AbsoluteUri;
             if (String.IsNullOrEmpty(refererURL)
                 || refererURL.IndexOf("Subgurim_FileUploader", StringComparison.InvariantCultureIgnoreCase) != -1
                 || (this is _Default)
@@ -187,8 +213,11 @@ namespace ASC.Web.Studio
             this.RegisterInlineScript(sb.ToString(), onReady: false);
         }
 
-        protected void SetLanguage(bool checkIp = true)
+        protected void SetLanguage(bool checkIp = true, bool abTesting = false)
         {
+            var abTestingQuery = string.Empty;
+            if (abTesting) abTesting = AbTestingQuery(out abTestingQuery);
+
             if (Request.QueryString.Count == 0)
             {
                 var ipGeolocationInfo = new GeolocationHelper("teamlabsite").GetIPGeolocationFromHttpContext();
@@ -197,7 +226,17 @@ namespace ASC.Web.Studio
                     var cultureInfo = SetupInfo.EnabledCultures.Find(c => String.Equals(c.TwoLetterISOLanguageName, ipGeolocationInfo.Key, StringComparison.InvariantCultureIgnoreCase));
                     if (cultureInfo != null)
                     {
-                        Response.Redirect(Request.Path + "?lang=" + cultureInfo.TwoLetterISOLanguageName, true);
+
+                        var redirectUrl = String.Format("/{0}/{1}", cultureInfo.TwoLetterISOLanguageName, Request.Path);
+
+                        if (redirectUrl.EndsWith("auth.aspx", StringComparison.InvariantCulture))
+                            redirectUrl = redirectUrl.Remove(redirectUrl.IndexOf("auth.aspx", StringComparison.Ordinal));
+
+                        if (abTesting)
+                            redirectUrl += (redirectUrl.Contains("?") ? "&" : "?") + abTestingQuery;
+
+                        Response.Redirect(redirectUrl, true);
+
                     }
                 }
             }
@@ -207,12 +246,58 @@ namespace ASC.Web.Studio
 
                 if (!string.IsNullOrEmpty(lang))
                 {
+                    lang = lang.Split(',')[0];
                     var cultureInfo = SetupInfo.EnabledCultures.Find(c => String.Equals(c.TwoLetterISOLanguageName, lang, StringComparison.InvariantCultureIgnoreCase));
                     if (cultureInfo != null)
                     {
                         Thread.CurrentThread.CurrentUICulture = cultureInfo;
                     }
+                    else
+                    {
+                        Log.WarnFormat("Lang {0} not supported", lang);
+                    }
                 }
+            }
+
+            if (abTesting)
+            {
+                var redirectUrl = Request.Path;
+
+                redirectUrl += (redirectUrl.Contains("?") ? "&" : "?") + abTestingQuery;
+
+                Response.Redirect(redirectUrl, true);
+            }
+        }
+
+        protected bool AbTestingQuery(out string query)
+        {
+            query = string.Empty;
+            
+            const string q = "ab";
+
+            if (!string.IsNullOrEmpty(ConfigurationManager.AppSettings[q])
+                || !string.IsNullOrEmpty((string) Session[q])
+                || !string.IsNullOrEmpty(Request[q])
+                || Request.Url.HasProfile())
+                return false;
+
+            Session[q] = "1";
+            if (new Random((int)DateTime.Now.Ticks & 0x0000FFFF).Next(2) == 0) return false;
+
+            query = q + "=1";
+            return true;
+        }
+
+        private void OutsideAuth()
+        {
+            var cookie = SecurityContext.AuthenticateMe(Constants.OutsideUser.ID);
+            if (HttpContext.Current != null)
+            {
+                CookiesManager.SetCookies(CookiesType.AuthKey, cookie);
+            }
+            else
+            {
+                SecurityContext.AuthenticateMe(cookie);
             }
         }
     }

@@ -1,7 +1,7 @@
 ﻿<%@ Control Language="C#" AutoEventWireup="false" EnableViewState="false" %>
 <%@ Assembly Name="ASC.Web.Studio" %>
 <%@ Assembly Name="ASC.Web.Projects" %>
-<%@ Import Namespace="ASC.Web.Projects.Configuration" %>
+
 <%@ Import Namespace="ASC.Web.Projects.Resources" %>
 <%@ Import Namespace="ASC.Web.Core.Utility.Skins" %>
 
@@ -56,8 +56,7 @@
                         {{if canEdit || canLinkContact}}
                             <img src="<%=WebImageSupplier.GetAbsoluteWebPath("unlink_16.png")%>"
                                title="<%= ProjectsCommonResource.UnlinkProjects %>" class="trash_delete" />
-                            <img src="<%=WebImageSupplier.GetAbsoluteWebPath("loader_16.gif")%>"
-                               title="" class="display-none trash_progress" />
+                            <div class="trash_progress loader-middle" title=""></div>
                         {{/if}}
                     </td>
                 {{/if}}

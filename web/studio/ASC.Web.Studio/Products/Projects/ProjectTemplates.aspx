@@ -1,5 +1,4 @@
-﻿<%@ Assembly Name="ASC.Projects.Core" %>
-<%@ Assembly Name="ASC.Web.Projects" %>
+﻿<%@ Assembly Name="ASC.Web.Projects" %>
 <%@ Import Namespace="ASC.Web.Projects.Resources" %>
 
 <%@ Page Language="C#" AutoEventWireup="true" MasterPageFile="~/Products/Projects/Masters/BasicTemplate.Master" CodeBehind="ProjectTemplates.aspx.cs" Inherits="ASC.Web.Projects.ProjectTemplates" %>
@@ -13,17 +12,16 @@
     
 <asp:PlaceHolder runat="server" ID="_content"></asp:PlaceHolder>
 
-<div class="projects-templates-container">   
+<div class="projects-templates-container">
     <table id="listTemplates">
     </table>
         
     <div id="templateActionPanel" class="studio-action-panel" target="">
-	    <div class="corner-top right"></div>
 	    <ul class="actionList dropdown-content">
 	        <li id="editTmpl" title="<%= ProjectTemplatesResource.Edit %>" class="dropdown-item"><%= ProjectTemplatesResource.Edit %></li>
-	        <li id="createProj" title="<%= ProjectTemplatesResource.CreateProjFromTmpl %>" class="dropdown-item"><%= ProjectTemplatesResource.CreateProjFromTmpl %></li>
+	        <li id="createProj" title="<%= ProjectTemplatesResource.CreateProject %>" class="dropdown-item"><%= ProjectTemplatesResource.CreateProject %></li>
 	        <li id="deleteTmpl" title="<%= ProjectTemplatesResource.Delete %>" class="dropdown-item"><%= ProjectTemplatesResource.Delete %></li>
-	    </ul>        
+	    </ul>
     </div>
     
     <div id="questionWindow" style="display: none">
@@ -31,7 +29,7 @@
             <Header>
                 <%= ProjectTemplatesResource.RemoveTemplateTitlePopup%>
             </Header>
-            <Body>        
+            <Body>
                 <p><%= ProjectTemplatesResource.RemoveQuestion%> </p>
                 <p><%= ProjectsCommonResource.PopupNoteUndone %></p>
                 <div class="middle-button-container">

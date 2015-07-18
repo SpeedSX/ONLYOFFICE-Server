@@ -6,9 +6,9 @@
 
 <asp:Content ID="PageContentWithoutCommonContainer" ContentPlaceHolderID="BTPageContentWithoutCommonContainer" runat="server">
     <asp:PlaceHolder ID="_navigationPanelContent" runat="server"></asp:PlaceHolder>
-    <asp:PlaceHolder ID="_widgetContainer" runat="server"></asp:PlaceHolder>
 </asp:Content>
 
 <asp:Content ID="CommonContainer" ContentPlaceHolderID="BTPageContent" runat="server">
+    <asp:PlaceHolder ID="loaderHolder" runat="server"></asp:PlaceHolder>
     <asp:PlaceHolder ID="CommonContainerHolder" runat="server"></asp:PlaceHolder>
 </asp:Content>

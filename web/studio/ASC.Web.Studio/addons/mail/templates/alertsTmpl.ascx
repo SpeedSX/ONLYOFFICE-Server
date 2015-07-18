@@ -1,6 +1,5 @@
-﻿<%@ Control Language="C#" AutoEventWireup="true" %>
+﻿<%@ Control Language="C#" AutoEventWireup="true" EnableViewState="false" %>
 <%@ Assembly Name="ASC.Web.Mail" %>
-<%@ Import Namespace="ASC.Web.Mail.Resources" %>
 
 <script id="alertPopupBodyTmpl" type="text/x-jquery-tmpl">
     <div class="popup">
@@ -16,5 +15,5 @@
 </script>
 
 <script id="alertPopupButtonTmpl" type="text/x-jquery-tmpl">
-    <a href="${href}" class="button middle ${css_class}">${text}</a>
+    <a  {{if typeof(href)!=='undefined'}} href="${href}" {{/if}} class="button middle ${css_class}">${text}</a>
 </script>

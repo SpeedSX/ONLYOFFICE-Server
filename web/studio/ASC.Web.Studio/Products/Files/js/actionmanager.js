@@ -1,35 +1,29 @@
 /*
-(c) Copyright Ascensio System SIA 2010-2014
-
-This program is a free software product.
-You can redistribute it and/or modify it under the terms 
-of the GNU Affero General Public License (AGPL) version 3 as published by the Free Software
-Foundation. In accordance with Section 7(a) of the GNU AGPL its Section 15 shall be amended
-to the effect that Ascensio System SIA expressly excludes the warranty of non-infringement of 
-any third-party rights.
-
-This program is distributed WITHOUT ANY WARRANTY; without even the implied warranty 
-of MERCHANTABILITY or FITNESS FOR A PARTICULAR  PURPOSE. For details, see 
-the GNU AGPL at: http://www.gnu.org/licenses/agpl-3.0.html
-
-You can contact Ascensio System SIA at Lubanas st. 125a-25, Riga, Latvia, EU, LV-1021.
-
-The  interactive user interfaces in modified source and object code versions of the Program must 
-display Appropriate Legal Notices, as required under Section 5 of the GNU AGPL version 3.
- 
-Pursuant to Section 7(b) of the License you must retain the original Product logo when 
-distributing the program. Pursuant to Section 7(e) we decline to grant you any rights under 
-trademark law for use of our trademarks.
- 
-All the Product's GUI elements, including illustrations and icon sets, as well as technical writing
-content are licensed under the terms of the Creative Commons Attribution-ShareAlike 4.0
-International. See the License terms at http://creativecommons.org/licenses/by-sa/4.0/legalcode
+ *
+ * (c) Copyright Ascensio System Limited 2010-2015
+ *
+ * This program is freeware. You can redistribute it and/or modify it under the terms of the GNU 
+ * General Public License (GPL) version 3 as published by the Free Software Foundation (https://www.gnu.org/copyleft/gpl.html). 
+ * In accordance with Section 7(a) of the GNU GPL its Section 15 shall be amended to the effect that 
+ * Ascensio System SIA expressly excludes the warranty of non-infringement of any third-party rights.
+ *
+ * THIS PROGRAM IS DISTRIBUTED WITHOUT ANY WARRANTY; WITHOUT EVEN THE IMPLIED WARRANTY OF MERCHANTABILITY OR
+ * FITNESS FOR A PARTICULAR PURPOSE. For more details, see GNU GPL at https://www.gnu.org/copyleft/gpl.html
+ *
+ * You can contact Ascensio System SIA by email at sales@onlyoffice.com
+ *
+ * The interactive user interfaces in modified source and object code versions of ONLYOFFICE must display 
+ * Appropriate Legal Notices, as required under Section 5 of the GNU GPL version 3.
+ *
+ * Pursuant to Section 7 § 3(b) of the GNU GPL you must retain the original ONLYOFFICE logo which contains 
+ * relevant author attributions when distributing the software. If the display of the logo in its graphic 
+ * form is not reasonably feasible for technical reasons, you must include the words "Powered by ONLYOFFICE" 
+ * in every copy of the program you distribute. 
+ * Pursuant to Section 7 § 3(e) we decline to grant you any rights under trademark law for use of our trademarks.
+ *
 */
 
-/*
-    Copyright (c) Ascensio System SIA 2013. All rights reserved.
-    http://www.teamlab.com
-*/
+
 window.ASC.Files.Actions = (function () {
     var isInit = false;
     var clipGetLink = null;
@@ -43,8 +37,10 @@ window.ASC.Files.Actions = (function () {
             jq(document).click(function (event) {
                 jq.dropdownToggle().registerAutoHide(event, "#filesActionsPanel", "#filesActionsPanel");
                 jq.dropdownToggle().registerAutoHide(event, ".row-selected .menu-small", "#filesActionPanel",
-                    function () {
+                    function (e) {
                         jq(".row-selected.row-lonely-select").removeClass("row-lonely-select");
+                        e = ASC.Files.Common.fixEvent(e);
+                        return e.button != 2;
                     });
             });
 
@@ -52,7 +48,8 @@ window.ASC.Files.Actions = (function () {
                 {
                     switcherSelector: "#mainContentHeader .down_arrow",
                     dropdownID: "filesSelectorPanel",
-                    anchorSelector: ".menuActionSelectAll"
+                    anchorSelector: ".menuActionSelectAll",
+                    addTop: 4
                 });
         }
     };
@@ -73,7 +70,7 @@ window.ASC.Files.Actions = (function () {
         jq("#filesMainContent .file-row:not(.checkloading):not(.new-folder):not(.new-file):not(.error-entry):has(.checkbox input:checked)").each(function () {
             var entryObj = jq(this);
 
-            if (ASC.Files.UI.editingFile(entryObj) || !ASC.Files.UI.accessAdmin(entryObj) || ASC.Files.UI.lockedForMe(entryObj)) {
+            if (ASC.Files.UI.editingFile(entryObj) || !ASC.Files.UI.accessDelete(entryObj) || ASC.Files.UI.lockedForMe(entryObj)) {
                 countWithRights--;
             }
 
@@ -82,7 +79,8 @@ window.ASC.Files.Actions = (function () {
             }
 
             if (ASC.Files.ThirdParty) {
-                if (!ASC.Files.ThirdParty.isThirdParty() && ASC.Files.ThirdParty.isThirdParty(entryObj)) {
+                var entryData = ASC.Files.UI.getObjectData(entryObj);
+                if (!ASC.Files.ThirdParty.isThirdParty() && ASC.Files.ThirdParty.isThirdParty(entryData)) {
                     countThirdParty++;
                 } else {
                     onlyThirdParty = false;
@@ -92,13 +90,13 @@ window.ASC.Files.Actions = (function () {
             }
 
             if (!canConvert && !entryObj.hasClass("folder-row")) {
-                var entryData = ASC.Files.UI.getObjectData(entryObj);
+                entryData = entryData || ASC.Files.UI.getObjectData(entryObj);
                 var entryTitle = entryData.title;
                 var formats = ASC.Files.Utility.GetConvertFormats(entryTitle);
                 canConvert = formats.length > 0;
             }
 
-            if (entryObj.is(":not(.without-share)")) {
+            if (!ASC.Resources.Master.Personal && entryObj.is(":not(.without-share)")) {
                 countCanShare++;
             }
         });
@@ -144,15 +142,14 @@ window.ASC.Files.Actions = (function () {
             }
             jq("#buttonEmptyTrash").show();
             jq("#mainEmptyTrash").addClass("unlockAction");
+        } else if (countCanShare > 0) {
+            jq("#buttonShare").show().find("span").html(countCanShare);
+            jq("#mainShare").addClass("unlockAction");
         }
 
         if (onlyThirdParty) {
             jq("#buttonDelete, #buttonMoveto").hide();
             jq("#mainDelete, #mainMove").removeClass("unlockAction");
-        }
-
-        if (countCanShare > 0) {
-            jq("#buttonShare").show().find("span").html(countCanShare);
         }
 
         if (typeof event != "undefined") {
@@ -192,8 +189,8 @@ window.ASC.Files.Actions = (function () {
         ASC.Files.UI.selectRow(entryObj, true);
         ASC.Files.UI.updateMainContentHeader();
 
-        var accessibleObj = ASC.Files.UI.accessibleItem(entryData, entryObj);
-        var accessAdminObj = ASC.Files.UI.accessAdmin(entryObj);
+        var accessibleObj = ASC.Files.UI.accessEdit(entryData, entryObj);
+        var accessAdminObj = ASC.Files.UI.accessDelete(entryObj);
 
         jq("#actionPanelFolders, #actionPanelFiles").hide();
         if (entryData.entryType === "file") {
@@ -209,6 +206,7 @@ window.ASC.Files.Actions = (function () {
                 #filesVersions,\
                 #filesMoveto,\
                 #filesCopyto,\
+                #filesCopy,\
                 #filesRename,\
                 #filesRestore,\
                 #filesRemove").show();
@@ -243,7 +241,7 @@ window.ASC.Files.Actions = (function () {
             }
 
             if (!ASC.Files.UI.editableFile(entryData)
-                || editingFile && !ASC.Files.Utility.CanCoAuhtoring(entryTitle)) {
+                || editingFile && (!ASC.Files.Utility.CanCoAuhtoring(entryTitle) || entryObj.hasClass("on-edit-alone"))) {
                 jq("#filesEdit").hide();
             }
 
@@ -285,8 +283,9 @@ window.ASC.Files.Actions = (function () {
                     #filesCompleteVersion").hide();
             }
 
-            if (ASC.Files.ThirdParty && ASC.Files.ThirdParty.isThirdParty(entryObj)) {
-                jq("#filesCompleteVersion").hide();
+            if (ASC.Files.ThirdParty && ASC.Files.ThirdParty.isThirdParty(entryData)) {
+                jq("#filesCompleteVersion,\
+                    #filesCopy").hide();
             }
 
             if (!accessAdminObj || lockedForMe) {
@@ -300,6 +299,10 @@ window.ASC.Files.Actions = (function () {
 
             if (ASC.Files.Folders.folderContainer != "forme") {
                 jq("#filesUnsubscribe").hide();
+            }
+
+            if (!ASC.Files.UI.accessEdit()) {
+                jq("#filesCopy").hide();
             }
 
             jq("#actionPanelFiles").show();
@@ -348,7 +351,7 @@ window.ASC.Files.Actions = (function () {
                 jq("#foldersUnsubscribe").hide();
             }
 
-            if (ASC.Files.ThirdParty && ASC.Files.ThirdParty.isThirdParty(entryObj)) {
+            if (ASC.Files.ThirdParty && ASC.Files.ThirdParty.isThirdParty(entryData)) {
                 if (ASC.Files.ThirdParty.isThirdParty()
                     || ASC.Files.Folders.currentFolder.id == ASC.Files.Constants.FOLDER_ID_SHARE) {
                     jq("#foldersRemoveThirdparty,\
@@ -382,9 +385,8 @@ window.ASC.Files.Actions = (function () {
                     "top": target.offset().top + target.outerHeight(),
                     "left": "auto",
                     "right": jq(window).width() - target.offset().left - target.width() - 2,
-                    "margin": "5px -8px 0 0"
-                })
-                .find(".corner-top").show();
+                    "margin": "0 -8px 0 0"
+                });
         } else {
             var correctionX = document.body.clientWidth - (e.pageX - pageXOffset + dropdownItem.innerWidth()) > 0 ? 0 : dropdownItem.innerWidth();
             var correctionY = document.body.clientHeight - (e.pageY - pageYOffset + dropdownItem.innerHeight()) > 0 ? 0 : dropdownItem.innerHeight();
@@ -395,13 +397,12 @@ window.ASC.Files.Actions = (function () {
                     "left": e.pageX - correctionX,
                     "right": "auto",
                     "margin": "0"
-                })
-                .find(".corner-top").hide();
+                });
         }
 
         dropdownItem.toggle();
 
-        if (!navigator.plugins["Shockwave Flash"]) {
+        if (!jq.browser.flashEnabled()) {
             jq("#filesGetLink").remove();
         }
 
@@ -409,6 +410,10 @@ window.ASC.Files.Actions = (function () {
             var url = entryObj.find(".entry-title .name a").prop("href");
             var offsetLink = jq("#filesGetLink").offset();
             var offsetDialog = jq("#filesActionPanel").offset();
+
+            if (typeof ZeroClipboard != 'undefined' && ZeroClipboard.moviePath === 'ZeroClipboard.swf') {
+                ZeroClipboard.setMoviePath(ASC.Resources.Master.ZeroClipboardMoviePath);
+            }
 
             ASC.Files.Actions.clipGetLink = new ZeroClipboard.Client();
             ASC.Files.Actions.clipGetLink.setText(url);
@@ -535,16 +540,13 @@ window.ASC.Files.Actions = (function () {
     };
 
     var showMoveToSelector = function (isCopy) {
-        if (ASC.Files.Import) {
-            ASC.Files.Import.isImport = false;
-        }
         ASC.Files.Folders.isCopyTo = (isCopy === true);
 
         if (ASC.Files.Folders.folderContainer != "trash"
             && !ASC.Files.Folders.isCopyTo) {
-            if (!ASC.Files.UI.accessibleItem()) {
+            if (!ASC.Files.UI.accessEdit()) {
                 var listWithAccess = jq.grep(jq("#filesMainContent .file-row:not(.checkloading):not(.new-folder):not(.new-file):not(.error-entry):has(.checkbox input:checked)"), function (i, item) {
-                    return ASC.Files.UI.accessAdmin(item);
+                    return ASC.Files.UI.accessDelete(item);
                 });
 
                 if (!listWithAccess.length) {
@@ -583,7 +585,7 @@ window.ASC.Files.Actions = (function () {
         if (!jq((event.target) ? event.target : event.srcElement).parents().addBack()
             .is("#treeViewPanelSelector, #foldersMoveto, #filesMoveto, #foldersCopyto, #filesCopyto,\
                  #foldersRestore, #filesRestore, #buttonMoveto, #buttonCopyto, #buttonRestore,\
-                 #mainMove, #mainCopy, #mainRestore, #importToFolderBtn")) {
+                 #mainMove, #mainCopy, #mainRestore")) {
             ASC.Files.Actions.hideAllActionPanels();
             jq("body").unbind("click", ASC.Files.Actions.registerHideTree);
         }
@@ -617,7 +619,7 @@ window.ASC.Files.Actions = (function () {
         });
 
         jq("#filesSelectFile, #filesSelectFolder, #filesSelectDocument,\
-            #filesSelectPresentation, #filesSelectSpreadsheet, #filesSelectImage").click(function () {
+            #filesSelectPresentation, #filesSelectSpreadsheet, #filesSelectImage, #filesSelectArchive").click(function () {
             var filter = this.id.replace("filesSelect", "").toLowerCase();
             ASC.Files.UI.checkSelect(filter);
         });
@@ -677,6 +679,11 @@ window.ASC.Files.Actions = (function () {
         jq("#filesEdit").click(function () {
             ASC.Files.Actions.hideAllActionPanels();
             ASC.Files.Folders.clickOnFile(ASC.Files.Actions.currentEntryData, true);
+        });
+
+        jq("#filesCopy").click(function () {
+            ASC.Files.Actions.hideAllActionPanels();
+            ASC.Files.Folders.createDuplicate(ASC.Files.Actions.currentEntryData);
         });
 
         jq("#foldersOpen").click(function () {

@@ -1,30 +1,28 @@
 /*
-(c) Copyright Ascensio System SIA 2010-2014
-
-This program is a free software product.
-You can redistribute it and/or modify it under the terms 
-of the GNU Affero General Public License (AGPL) version 3 as published by the Free Software
-Foundation. In accordance with Section 7(a) of the GNU AGPL its Section 15 shall be amended
-to the effect that Ascensio System SIA expressly excludes the warranty of non-infringement of 
-any third-party rights.
-
-This program is distributed WITHOUT ANY WARRANTY; without even the implied warranty 
-of MERCHANTABILITY or FITNESS FOR A PARTICULAR  PURPOSE. For details, see 
-the GNU AGPL at: http://www.gnu.org/licenses/agpl-3.0.html
-
-You can contact Ascensio System SIA at Lubanas st. 125a-25, Riga, Latvia, EU, LV-1021.
-
-The  interactive user interfaces in modified source and object code versions of the Program must 
-display Appropriate Legal Notices, as required under Section 5 of the GNU AGPL version 3.
- 
-Pursuant to Section 7(b) of the License you must retain the original Product logo when 
-distributing the program. Pursuant to Section 7(e) we decline to grant you any rights under 
-trademark law for use of our trademarks.
- 
-All the Product's GUI elements, including illustrations and icon sets, as well as technical writing
-content are licensed under the terms of the Creative Commons Attribution-ShareAlike 4.0
-International. See the License terms at http://creativecommons.org/licenses/by-sa/4.0/legalcode
+ *
+ * (c) Copyright Ascensio System Limited 2010-2015
+ *
+ * This program is freeware. You can redistribute it and/or modify it under the terms of the GNU 
+ * General Public License (GPL) version 3 as published by the Free Software Foundation (https://www.gnu.org/copyleft/gpl.html). 
+ * In accordance with Section 7(a) of the GNU GPL its Section 15 shall be amended to the effect that 
+ * Ascensio System SIA expressly excludes the warranty of non-infringement of any third-party rights.
+ *
+ * THIS PROGRAM IS DISTRIBUTED WITHOUT ANY WARRANTY; WITHOUT EVEN THE IMPLIED WARRANTY OF MERCHANTABILITY OR
+ * FITNESS FOR A PARTICULAR PURPOSE. For more details, see GNU GPL at https://www.gnu.org/copyleft/gpl.html
+ *
+ * You can contact Ascensio System SIA by email at sales@onlyoffice.com
+ *
+ * The interactive user interfaces in modified source and object code versions of ONLYOFFICE must display 
+ * Appropriate Legal Notices, as required under Section 5 of the GNU GPL version 3.
+ *
+ * Pursuant to Section 7 § 3(b) of the GNU GPL you must retain the original ONLYOFFICE logo which contains 
+ * relevant author attributions when distributing the software. If the display of the logo in its graphic 
+ * form is not reasonably feasible for technical reasons, you must include the words "Powered by ONLYOFFICE" 
+ * in every copy of the program you distribute. 
+ * Pursuant to Section 7 § 3(e) we decline to grant you any rights under trademark law for use of our trademarks.
+ *
 */
+
 
 using System;
 using System.Collections.Generic;
@@ -286,7 +284,7 @@ namespace ASC.Api.Projects
                 taskEngine.AttachFile(task, file.ID, true);
             }
 
-            MessageService.Send(_context, MessageAction.TaskAttachedFiles, task.Project.Title, task.Title, fileNames);
+            MessageService.Send(Request, MessageAction.TaskAttachedFiles, task.Project.Title, task.Title, fileNames);
 
             return new TaskWrapper(task);
         }
@@ -314,7 +312,7 @@ namespace ASC.Api.Projects
 
             var file = fileEngine.GetFile(fileid, 1).NotFoundIfNull();
             taskEngine.DetachFile(task, fileid);
-            MessageService.Send(_context, MessageAction.TaskDetachedFile, task.Project.Title, task.Title, file.Title);
+            MessageService.Send(Request, MessageAction.TaskDetachedFile, task.Project.Title, task.Title, file.Title);
 
             return new TaskWrapper(task);
         }
@@ -327,7 +325,7 @@ namespace ASC.Api.Projects
         ///</short>
         /// <category>Tasks</category>
         ///<param name="taskid">Task ID</param>
-        ///<param name="status">Ctatus of task. Can be one of: notaccept|open|closed|disable|unclassified|notinmilestone</param>
+        ///<param name="status">Status of task. Can be one of: open|closed</param>
         ///<returns>Updated task</returns>
         ///<exception cref="ItemNotFoundException"></exception>
         [Update(@"task/{taskid:[0-9]+}/status")]
@@ -336,7 +334,7 @@ namespace ASC.Api.Projects
             var task = EngineFactory.GetTaskEngine().GetByID(taskid).NotFoundIfNull();
 
             task = EngineFactory.GetTaskEngine().ChangeStatus(task, status);
-            MessageService.Send(_context, MessageAction.TaskUpdatedStatus, task.Project.Title, task.Title, LocalizedEnumConverter.ConvertToString(task.Status));
+            MessageService.Send(Request, MessageAction.TaskUpdatedStatus, task.Project.Title, task.Title, LocalizedEnumConverter.ConvertToString(task.Status));
 
             return GetTask(task.ID);
         }
@@ -366,11 +364,11 @@ namespace ASC.Api.Projects
             task = taskEngine.MoveToMilestone(task, milestoneid);
             if (milestone != null)
             {
-                MessageService.Send(_context, MessageAction.TaskMovedToMilestone, task.Project.Title, milestone.Title, task.Title);
+                MessageService.Send(Request, MessageAction.TaskMovedToMilestone, task.Project.Title, milestone.Title, task.Title);
             }
             else
             {
-                MessageService.Send(_context, MessageAction.TaskUnlinkedMilestone, task.Project.Title, task.Title);
+                MessageService.Send(Request, MessageAction.TaskUnlinkedMilestone, task.Project.Title, task.Title);
             }
 
             return GetTask(task.ID);
@@ -422,7 +420,7 @@ namespace ASC.Api.Projects
                 throw new ItemNotFoundException("Milestone not found");
             }
 
-            task.Responsibles = new HashSet<Guid>(responsibles);
+            task.Responsibles = new List<Guid>(responsibles.Distinct());
 
             task.Deadline = Update.IfNotEquals(task.Deadline, deadline);
             task.Description = Update.IfNotEquals(task.Description, description);
@@ -454,7 +452,7 @@ namespace ASC.Api.Projects
                 taskEngine.ChangeStatus(task, status.Value);
             }
 
-            MessageService.Send(_context, MessageAction.TaskUpdated, task.Project.Title, task.Title);
+            MessageService.Send(Request, MessageAction.TaskUpdated, task.Project.Title, task.Title);
 
             return GetTask(task.ID);
         }
@@ -477,7 +475,7 @@ namespace ASC.Api.Projects
             var task = taskEngine.GetByID(taskid).NotFoundIfNull();
 
             taskEngine.Delete(task);
-            MessageService.Send(_context, MessageAction.TaskDeleted, task.Project.Title, task.Title);
+            MessageService.Send(Request, MessageAction.TaskDeleted, task.Project.Title, task.Title);
 
             return new TaskWrapper(task);
         }
@@ -535,7 +533,7 @@ namespace ASC.Api.Projects
             comment = taskEngine.SaveOrUpdateComment(taskEngine.GetByID(taskid).NotFoundIfNull(), comment);
 
             var task = taskEngine.GetByID(taskid);
-            MessageService.Send(_context, MessageAction.TaskCommentCreated, task.Project.Title, task.Title);
+            MessageService.Send(Request, MessageAction.TaskCommentCreated, task.Project.Title, task.Title);
 
             return new CommentWrapper(comment);
         }
@@ -581,7 +579,7 @@ namespace ASC.Api.Projects
             ProjectSecurity.DemandAuthentication();
 
             taskEngine.Follow(task);
-            MessageService.Send(_context, MessageAction.TaskUpdatedFollowing, task.Project.Title, task.Title);
+            MessageService.Send(Request, MessageAction.TaskUpdatedFollowing, task.Project.Title, task.Title);
 
             return new TaskWrapper(task);
         }
@@ -618,8 +616,7 @@ namespace ASC.Api.Projects
         ///<param name="dependenceTaskId">Dependent Task ID</param>
         ///<param name="linkType">Link Type</param>
         ///<exception cref="ItemNotFoundException"></exception>
-        ///<visible>false</visible>
-        [Create(@"task/{taskid:[0-9]+}/link")]
+        [Create(@"task/{parentTaskId:[0-9]+}/link")]
         public TaskWrapper AddLink(int parentTaskId, int dependenceTaskId, TaskLinkType linkType)
         {
             var taskEngine = EngineFactory.GetTaskEngine();
@@ -628,7 +625,7 @@ namespace ASC.Api.Projects
             var parentTask = taskEngine.GetByID(parentTaskId).NotFoundIfNull();
 
             taskEngine.AddLink(parentTask, dependentTask, linkType);
-            MessageService.Send(_context, MessageAction.TasksLinked, parentTask.Project.Title, parentTask.Title, dependentTask.Title);
+            MessageService.Send(Request, MessageAction.TasksLinked, parentTask.Project.Title, parentTask.Title, dependentTask.Title);
 
             return new TaskWrapper(dependentTask);
         }
@@ -643,7 +640,6 @@ namespace ASC.Api.Projects
         ///<param name="dependenceTaskId">Dependent Task ID</param>
         ///<param name="parentTaskId">Parent Task ID</param>
         ///<exception cref="ItemNotFoundException"></exception>
-        ///<visible>false</visible>
         [Delete(@"task/{taskid:[0-9]+}/link")]
         public TaskWrapper RemoveLink(int dependenceTaskId, int parentTaskId)
         {
@@ -653,7 +649,7 @@ namespace ASC.Api.Projects
             var parentTask = taskEngine.GetByID(parentTaskId).NotFoundIfNull();
 
             EngineFactory.GetTaskEngine().RemoveLink(dependentTask, parentTask);
-            MessageService.Send(_context, MessageAction.TasksUnlinked, parentTask.Project.Title, parentTask.Title, dependentTask.Title);
+            MessageService.Send(Request, MessageAction.TasksUnlinked, parentTask.Project.Title, parentTask.Title, dependentTask.Title);
 
             return new TaskWrapper(dependentTask);
         }
@@ -691,7 +687,7 @@ namespace ASC.Api.Projects
                 };
 
             subtask = EngineFactory.GetSubtaskEngine().SaveOrUpdate(subtask, task);
-            MessageService.Send(_context, MessageAction.SubtaskCreated, task.Project.Title, task.Title, subtask.Title);
+            MessageService.Send(Request, MessageAction.SubtaskCreated, task.Project.Title, task.Title, subtask.Title);
 
             return new SubtaskWrapper(subtask, task);
         }
@@ -720,7 +716,7 @@ namespace ASC.Api.Projects
             subtask.Title = Update.IfNotEmptyAndNotEquals(subtask.Title, title);
 
             subtask = EngineFactory.GetSubtaskEngine().SaveOrUpdate(subtask, task);
-            MessageService.Send(_context, MessageAction.SubtaskUpdated, task.Project.Title, task.Title, subtask.Title);
+            MessageService.Send(Request, MessageAction.SubtaskUpdated, task.Project.Title, task.Title, subtask.Title);
 
             return new SubtaskWrapper(subtask, task);
         }
@@ -742,7 +738,7 @@ namespace ASC.Api.Projects
             var subtask = task.SubTasks.Find(r => r.ID == subtaskid).NotFoundIfNull();
 
             EngineFactory.GetSubtaskEngine().Delete(subtask, task);
-            MessageService.Send(_context, MessageAction.SubtaskDeleted, task.Project.Title, task.Title, subtask.Title);
+            MessageService.Send(Request, MessageAction.SubtaskDeleted, task.Project.Title, task.Title, subtask.Title);
 
             return new SubtaskWrapper(subtask, task);
         }
@@ -767,7 +763,7 @@ namespace ASC.Api.Projects
             ProjectSecurity.DemandEdit(task, subtask);
 
             subtask = EngineFactory.GetSubtaskEngine().ChangeStatus(task, subtask, status);
-            MessageService.Send(_context, MessageAction.SubtaskUpdatedStatus, task.Project.Title, task.Title, subtask.Title, LocalizedEnumConverter.ConvertToString(subtask.Status));
+            MessageService.Send(Request, MessageAction.SubtaskUpdatedStatus, task.Project.Title, task.Title, subtask.Title, LocalizedEnumConverter.ConvertToString(subtask.Status));
 
             return new SubtaskWrapper(subtask, task);
         }

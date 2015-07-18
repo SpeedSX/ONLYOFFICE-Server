@@ -55,7 +55,7 @@ namespace ActiveUp.Net.Mail
         string _preamble, _epilogue;
         Signatures _signatures = new Signatures();
 
-        bool _isSmimeEncrypted, _hasDomainKeySignature, _hasSmimeSignature, _hasSmimeDetachedSignature;
+        bool _isSmimeEncrypted, _hasDomainKeySignature, _hasSmimeSignature, _hasSmimeDetachedSignature, _hasParseError;
 
         #endregion
 
@@ -458,6 +458,14 @@ namespace ActiveUp.Net.Mail
             }
         }
 
+        /// <summary>
+        /// Indicates whether the message has parsed with errors.
+        /// </summary>
+        public bool HasParseError {
+            get { return _hasParseError; }
+            set { _hasParseError = value; }
+        }
+
         #endregion
 
         #region Constuctors
@@ -692,8 +700,8 @@ namespace ActiveUp.Net.Mail
             //}
 
             StringBuilder sb = new StringBuilder();
-            sb.Append(string.Concat(((Header)this).ToHeaderString(removeBlindCopies).TrimEnd('\r', '\n'), Tokenizer.NewLine));
-            sb.Append(Tokenizer.NewLine);
+            sb.Append(string.Concat(((Header)this).ToHeaderString(removeBlindCopies).TrimEnd('\r', '\n'), "\r\n"));
+            sb.Append("\r\n");
             string messageAsPart = this.PartTreeRoot.ToMimeString();
             int bodyStart = Regex.Match(messageAsPart, @"(?<=\r?\n\r?\n).").Index;
             sb.Append(messageAsPart.Substring(bodyStart).TrimStart('\r', '\n'));
@@ -1530,11 +1538,16 @@ Disposition: manual-action/MDN-sent-manually; displayed", "domain", this.To[0].E
 
         public void AddAttachmentFromString(string filename, string body)
         {
-            var decoded_bytes = Encoding.GetEncoding("iso-8859-1").GetBytes(body);
+            AddAttachmentFromString(filename, body, Encoding.GetEncoding("iso-8859-1"));
+        }
 
-            var text_attach = new MimePart(decoded_bytes, filename);
+        public void AddAttachmentFromString(string filename, string body, Encoding encoding)
+        {
+            var decodedBytes = encoding.GetBytes(body);
 
-            Attachments.Add(text_attach);
+            var textAttach = new MimePart(decodedBytes, filename, encoding.BodyName);
+
+            Attachments.Add(textAttach);
         }
 
 

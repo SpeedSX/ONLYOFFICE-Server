@@ -44,7 +44,7 @@
                 </table>
             </div>
             <div class="linked_addresses save">
-                <div id="mail_CreateTag_Email" class="requiredField">
+                <div id="mail_CreateTag_Email" class="requiredField clearFix">
                    <span class="requiredErrorText required-hint"><%= MailScriptResource.ErrorEmptyField %></span>
                     <div class="headerPanelSmall" ><%: MailResource.MarkFrom %></div>
                    <input id="mail_tag_email" type="email" value="" class="textEdit addemail" placeholder="<%=MailResource.AddEmailPlaceholder%>"/>
@@ -74,7 +74,6 @@
 </div>
 
 <div id="addTagsPanel" class="actionPanel stick-over">
-    <div class="popup-corner"></div>
     <div id="tagsPanelContent" style="display: block;">
         <div class="actionPanelSection">
             <label for="markallrecipients" class="mark_all_checkbox">

@@ -1,48 +1,46 @@
 /*
-(c) Copyright Ascensio System SIA 2010-2014
-
-This program is a free software product.
-You can redistribute it and/or modify it under the terms 
-of the GNU Affero General Public License (AGPL) version 3 as published by the Free Software
-Foundation. In accordance with Section 7(a) of the GNU AGPL its Section 15 shall be amended
-to the effect that Ascensio System SIA expressly excludes the warranty of non-infringement of 
-any third-party rights.
-
-This program is distributed WITHOUT ANY WARRANTY; without even the implied warranty 
-of MERCHANTABILITY or FITNESS FOR A PARTICULAR  PURPOSE. For details, see 
-the GNU AGPL at: http://www.gnu.org/licenses/agpl-3.0.html
-
-You can contact Ascensio System SIA at Lubanas st. 125a-25, Riga, Latvia, EU, LV-1021.
-
-The  interactive user interfaces in modified source and object code versions of the Program must 
-display Appropriate Legal Notices, as required under Section 5 of the GNU AGPL version 3.
- 
-Pursuant to Section 7(b) of the License you must retain the original Product logo when 
-distributing the program. Pursuant to Section 7(e) we decline to grant you any rights under 
-trademark law for use of our trademarks.
- 
-All the Product's GUI elements, including illustrations and icon sets, as well as technical writing
-content are licensed under the terms of the Creative Commons Attribution-ShareAlike 4.0
-International. See the License terms at http://creativecommons.org/licenses/by-sa/4.0/legalcode
+ *
+ * (c) Copyright Ascensio System Limited 2010-2015
+ *
+ * This program is freeware. You can redistribute it and/or modify it under the terms of the GNU 
+ * General Public License (GPL) version 3 as published by the Free Software Foundation (https://www.gnu.org/copyleft/gpl.html). 
+ * In accordance with Section 7(a) of the GNU GPL its Section 15 shall be amended to the effect that 
+ * Ascensio System SIA expressly excludes the warranty of non-infringement of any third-party rights.
+ *
+ * THIS PROGRAM IS DISTRIBUTED WITHOUT ANY WARRANTY; WITHOUT EVEN THE IMPLIED WARRANTY OF MERCHANTABILITY OR
+ * FITNESS FOR A PARTICULAR PURPOSE. For more details, see GNU GPL at https://www.gnu.org/copyleft/gpl.html
+ *
+ * You can contact Ascensio System SIA by email at sales@onlyoffice.com
+ *
+ * The interactive user interfaces in modified source and object code versions of ONLYOFFICE must display 
+ * Appropriate Legal Notices, as required under Section 5 of the GNU GPL version 3.
+ *
+ * Pursuant to Section 7 § 3(b) of the GNU GPL you must retain the original ONLYOFFICE logo which contains 
+ * relevant author attributions when distributing the software. If the display of the logo in its graphic 
+ * form is not reasonably feasible for technical reasons, you must include the words "Powered by ONLYOFFICE" 
+ * in every copy of the program you distribute. 
+ * Pursuant to Section 7 § 3(e) we decline to grant you any rights under trademark law for use of our trademarks.
+ *
 */
 
+
+using ASC.Common.Data;
+using ASC.Common.Data.Sql;
+using ASC.Common.Data.Sql.Expressions;
+using ASC.Common.Utils;
+using ASC.Core.Tenants;
 using System;
 using System.Collections.Generic;
 using System.Configuration;
+using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
-using ASC.Common.Data.Sql;
-using ASC.Common.Data.Sql.Expressions;
-using ASC.Core.Tenants;
 
 namespace ASC.Core.Data
 {
     public class DbTenantService : DbBaseService, ITenantService
     {
-        private readonly Regex validDomain = new Regex("^[a-z0-9]([a-z0-9-]){1,98}[a-z0-9]$", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
-
         private List<string> forbiddenDomains;
-
+        private TimeZoneInfo defaultTimeZone;
 
 
         public DbTenantService(ConnectionStringSettings connectionString)
@@ -53,7 +51,10 @@ namespace ASC.Core.Data
 
         public void ValidateDomain(string domain)
         {
-            ExecAction(db => ValidateDomain(db, domain, Tenant.DEFAULT_TENANT, true));
+            using (var db = GetDb())
+            {
+                ValidateDomain(db, domain, Tenant.DEFAULT_TENANT, true);
+            }
         }
 
         public IEnumerable<Tenant> GetTenants(DateTime from)
@@ -89,6 +90,8 @@ namespace ASC.Core.Data
             if (string.IsNullOrEmpty(domain)) throw new ArgumentNullException("domain");
 
             return GetTenants(Exp.Eq("alias", domain.ToLowerInvariant()) | Exp.Eq("mappeddomain", domain.ToLowerInvariant()))
+                .OrderBy(a => a.Status)
+                .ThenByDescending(a => a.TenantId)
                 .FirstOrDefault();
         }
 
@@ -96,13 +99,9 @@ namespace ASC.Core.Data
         {
             if (t == null) throw new ArgumentNullException("tenant");
 
-            ExecAction(db =>
+            using (var db = GetDb())
+            using (var tx = db.BeginTransaction())
             {
-                if (t.TenantId != 0)
-                {
-                    // TenantId == 0 in open source version
-                    ValidateDomain(db, t.TenantAlias, t.TenantId, true);
-                }
                 if (!string.IsNullOrEmpty(t.MappedDomain))
                 {
                     var baseUrl = TenantUtil.GetBaseDomain(t.HostedRegion);
@@ -124,7 +123,7 @@ namespace ASC.Core.Data
                         .Where(Exp.Eq("default_version", 1) | Exp.Eq("id", 0))
                         .OrderBy(1, false)
                         .SetMaxResults(1);
-                    t.Version = db.ExecScalar<int>(q);
+                    t.Version = db.ExecuteScalar<int>(q);
 
                     var i = new SqlInsert("tenants_tenants", true)
                         .InColumnValue("id", t.TenantId)
@@ -147,7 +146,7 @@ namespace ASC.Core.Data
                         .Identity<int>(0, t.TenantId, true);
 
 
-                    t.TenantId = db.ExecScalar<int>(i);
+                    t.TenantId = db.ExecuteScalar<int>(i);
                 }
                 else
                 {
@@ -170,30 +169,45 @@ namespace ASC.Core.Data
                         .Set("industry", (int)t.Industry)
                         .Where("id", t.TenantId);
 
-                    db.ExecNonQuery(u);
+                    db.ExecuteNonQuery(u);
                 }
-                
+
                 if (string.IsNullOrEmpty(t.PartnerId))
                 {
                     var d = new SqlDelete("tenants_partners").Where("tenant_id", t.TenantId);
-                    db.ExecNonQuery(d);
+                    db.ExecuteNonQuery(d);
                 }
                 else
                 {
                     var i = new SqlInsert("tenants_partners", true)
                         .InColumnValue("tenant_id", t.TenantId)
                         .InColumnValue("partner_id", t.PartnerId);
-                    db.ExecNonQuery(i);
+                    db.ExecuteNonQuery(i);
                 }
-            });
+
+                tx.Commit();
+            }
             //CalculateTenantDomain(t);
             return t;
         }
 
         public void RemoveTenant(int id)
         {
-            var d = new SqlDelete("tenants_tenants").Where("id", id);
-            ExecNonQuery(d);
+            using (var db = GetDb())
+            using (var tx = db.BeginTransaction())
+            {
+                var alias = db.ExecuteScalar<string>(new SqlQuery("tenants_tenants").Select("alias").Where("id", id));
+                var count = db.ExecuteScalar<int>(new SqlQuery("tenants_tenants").SelectCount().Where(Exp.Like("alias", alias + "_deleted", SqlLike.StartWith)));
+                db.ExecuteNonQuery(
+                    new SqlUpdate("tenants_tenants")
+                        .Set("alias", alias + "_deleted" + (count > 0 ? count.ToString() : ""))
+                        .Set("status", TenantStatus.RemovePending)
+                        .Set("statuschanged", DateTime.UtcNow)
+                        .Set("last_modified", DateTime.UtcNow)
+                        .Where("id", id));
+
+                tx.Commit();
+            }
         }
 
         public IEnumerable<TenantVersion> GetTenantVersions()
@@ -264,33 +278,45 @@ namespace ASC.Core.Data
 
         private TimeZoneInfo GetTimeZone(string zoneId)
         {
-            if (!string.IsNullOrEmpty(zoneId))
+            if (defaultTimeZone == null)
             {
                 try
                 {
-                    return TimeZoneInfo.FindSystemTimeZoneById(zoneId);
+                    var tz = TimeZoneInfo.Local;
+                    if (Path.DirectorySeparatorChar == '/')
+                    {
+                        if (tz.StandardName == "UTC" || tz.StandardName == "UCT")
+                        {
+                            tz = TimeZoneInfo.Utc;
+                        }
+                        else
+                        {
+                            var file = File.Exists("/etc/timezone") ? "/etc/timezone" : "/etc/localtime";
+                            var id = File.ReadAllText(file).Trim();
+                            tz = TimeZoneInfo.GetSystemTimeZones().FirstOrDefault(z => z.Id == id) ?? tz;
+                        }
+                    }
+                    defaultTimeZone = tz;
                 }
-                catch (TimeZoneNotFoundException) { }
+                catch(Exception)
+                {
+                    // ignore
+                    defaultTimeZone = TimeZoneInfo.Utc;
+                }
             }
-            return TimeZoneInfo.Utc;
+
+            return string.IsNullOrEmpty(zoneId) ? defaultTimeZone : TimeZoneConverter.GetTimeZone(zoneId);
         }
 
-        private void ValidateDomain(IDbExecuter db, string domain, int tenantId, bool validateCharacters)
+        private void ValidateDomain(IDbManager db, string domain, int tenantId, bool validateCharacters)
         {
             // size
-            if (string.IsNullOrEmpty(domain))
-            {
-                throw new TenantTooShortException("Tenant domain can not be empty.");
-            }
-            if (domain.Length < 6 || 100 < domain.Length)
-            {
-                throw new TenantTooShortException("Length of domain must be greater than or equal to 6 and less than or equal to 100.");
-            }
+            TenantDomainValidator.ValidateDomainLength(domain);
 
             // characters
-            if (validateCharacters && !validDomain.IsMatch(domain))
+            if (validateCharacters)
             {
-                throw new TenantIncorrectCharsException("Domain contains invalid characters.");
+                TenantDomainValidator.ValidateDomainCharacters(domain);
             }
 
             // forbidden or exists
@@ -306,11 +332,12 @@ namespace ASC.Core.Data
             }
             if (!exists)
             {
-                exists = 0 < db.ExecScalar<int>(new SqlQuery("tenants_tenants").SelectCount().Where(Exp.Eq("alias", domain) & !Exp.Eq("id", tenantId)));
+                exists = 0 < db.ExecuteScalar<int>(new SqlQuery("tenants_tenants").SelectCount().Where(Exp.Eq("alias", domain) & !Exp.Eq("id", tenantId)));
             }
             if (!exists)
             {
-                exists = 0 < db.ExecScalar<int>(new SqlQuery("tenants_tenants").SelectCount().Where(Exp.Eq("mappeddomain", domain) & !Exp.Eq("id", tenantId)));
+                exists = 0 < db.ExecuteScalar<int>(new SqlQuery("tenants_tenants").SelectCount()
+                    .Where(Exp.Eq("mappeddomain", domain) & !Exp.Eq("id", tenantId) & !Exp.Eq("status", (int)TenantStatus.RemovePending)));
             }
             if (exists)
             {
@@ -329,9 +356,10 @@ namespace ASC.Core.Data
 
                 var q = new SqlQuery("tenants_forbiden").Select("address").Where(Exp.Like("address", domain, SqlLike.StartWith))
                     .Union(new SqlQuery("tenants_tenants").Select("alias").Where(Exp.Like("alias", domain, SqlLike.StartWith) & !Exp.Eq("id", tenantId)))
-                    .Union(new SqlQuery("tenants_tenants").Select("mappeddomain").Where(Exp.Like("mappeddomain", domain, SqlLike.StartWith) & !Exp.Eq("id", tenantId)));
+                    .Union(new SqlQuery("tenants_tenants").Select("mappeddomain")
+                        .Where(Exp.Like("mappeddomain", domain, SqlLike.StartWith) & !Exp.Eq("id", tenantId) & !Exp.Eq("status", (int)TenantStatus.RemovePending)));
 
-                var existsTenants = db.ExecList(q).ConvertAll(r => (string)r[0]);
+                var existsTenants = db.ExecuteList(q).ConvertAll(r => (string)r[0]);
                 throw new TenantAlreadyExistsException("Address busy.", existsTenants);
             }
         }

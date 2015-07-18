@@ -1,35 +1,29 @@
 /*
-(c) Copyright Ascensio System SIA 2010-2014
-
-This program is a free software product.
-You can redistribute it and/or modify it under the terms 
-of the GNU Affero General Public License (AGPL) version 3 as published by the Free Software
-Foundation. In accordance with Section 7(a) of the GNU AGPL its Section 15 shall be amended
-to the effect that Ascensio System SIA expressly excludes the warranty of non-infringement of 
-any third-party rights.
-
-This program is distributed WITHOUT ANY WARRANTY; without even the implied warranty 
-of MERCHANTABILITY or FITNESS FOR A PARTICULAR  PURPOSE. For details, see 
-the GNU AGPL at: http://www.gnu.org/licenses/agpl-3.0.html
-
-You can contact Ascensio System SIA at Lubanas st. 125a-25, Riga, Latvia, EU, LV-1021.
-
-The  interactive user interfaces in modified source and object code versions of the Program must 
-display Appropriate Legal Notices, as required under Section 5 of the GNU AGPL version 3.
- 
-Pursuant to Section 7(b) of the License you must retain the original Product logo when 
-distributing the program. Pursuant to Section 7(e) we decline to grant you any rights under 
-trademark law for use of our trademarks.
- 
-All the Product's GUI elements, including illustrations and icon sets, as well as technical writing
-content are licensed under the terms of the Creative Commons Attribution-ShareAlike 4.0
-International. See the License terms at http://creativecommons.org/licenses/by-sa/4.0/legalcode
+ *
+ * (c) Copyright Ascensio System Limited 2010-2015
+ *
+ * This program is freeware. You can redistribute it and/or modify it under the terms of the GNU 
+ * General Public License (GPL) version 3 as published by the Free Software Foundation (https://www.gnu.org/copyleft/gpl.html). 
+ * In accordance with Section 7(a) of the GNU GPL its Section 15 shall be amended to the effect that 
+ * Ascensio System SIA expressly excludes the warranty of non-infringement of any third-party rights.
+ *
+ * THIS PROGRAM IS DISTRIBUTED WITHOUT ANY WARRANTY; WITHOUT EVEN THE IMPLIED WARRANTY OF MERCHANTABILITY OR
+ * FITNESS FOR A PARTICULAR PURPOSE. For more details, see GNU GPL at https://www.gnu.org/copyleft/gpl.html
+ *
+ * You can contact Ascensio System SIA by email at sales@onlyoffice.com
+ *
+ * The interactive user interfaces in modified source and object code versions of ONLYOFFICE must display 
+ * Appropriate Legal Notices, as required under Section 5 of the GNU GPL version 3.
+ *
+ * Pursuant to Section 7 § 3(b) of the GNU GPL you must retain the original ONLYOFFICE logo which contains 
+ * relevant author attributions when distributing the software. If the display of the logo in its graphic 
+ * form is not reasonably feasible for technical reasons, you must include the words "Powered by ONLYOFFICE" 
+ * in every copy of the program you distribute. 
+ * Pursuant to Section 7 § 3(e) we decline to grant you any rights under trademark law for use of our trademarks.
+ *
 */
 
-/*
-    Copyright (c) Ascensio System SIA 2013. All rights reserved.
-    http://www.teamlab.com
-*/
+
 /*******************************************************************************
 JQuery Extension
 *******************************************************************************/
@@ -48,140 +42,106 @@ if (typeof ASC.CRM === "undefined") {
 
 jQuery.extend({
 
-    forceNumericOnly: function() {
-        return this.each(function() {
-            jq(this).keydown(function(e) {
-                var key = e.charCode || e.keyCode || 0;
-                // allow backspace, tab, delete, arrows, numbers and keypad numbers ONLY
-                return (
-                    key == 8 || key == 9 || key == 46 ||
-                    (key >= 37 && key <= 40) ||
-                    (key >= 48 && key <= 57) ||
-                    (key >= 96 && key <= 105));
-            });
-        });
-    },
+    forceNumber: function (settings) {
+        var options = jQuery.extend({
+            parent: "body",
+            input: "",
+            integerOnly: true,
+            positiveOnly: true,
+            onPasteCallback: null,
+            separator: '.',
+            lengthAfterSeparator: null
+        }, settings);
 
-    forcePhoneSymbolsOnly: function(objSelector) {
-        var phoneSymbolsReg = /^\+?[0-9-()\s]+$/;
-        jq(objSelector).each(function() {
-            jq(this).keypress(function(event) {
+        if (options.input == "") return;
 
-                var index = jq(this).val().indexOf("+"),
-                    caretPos = jq(this).caret().start,
-                    controlKeys = [8, 9],
-                    isControlKey = controlKeys.join(",").match(new RegExp(event.which)),
-                    keyCode = event.which;
-
-                if (!keyCode ||
-                    (48 <= keyCode && keyCode <= 57) //number
-                    || isControlKey
-                    || (keyCode == 43 && caretPos == 0 && index == -1) //plus
-                    || (keyCode == 32 && caretPos != 0) //space
-                    || keyCode == 45 || keyCode == 40 || keyCode == 41) {
-                    return;
-                } else {
-                    event.preventDefault();
-                }
-            });
-
-            jq(this).unbind('paste').bind('paste', function(e) {
-                var oldValue = this.value,
-                    $obj = this;
-                setTimeout(
-                    function() {
-                        var text = jq($obj).val();
-                        if (!phoneSymbolsReg.test(text)) {
-                            jq($obj).val(oldValue);
-                        }
-                    }, 0);
-                return true;
-            });
-        });
-    },
-
-    forceIntegerOnly: function(ObjSelector, doIfInteger) {
-        jq(ObjSelector).each(function() {
-            jq(this).keypress(function(event) {
-                // Backspace, Del
-                var controlKeys = [8, 9],
-                // IE doesn't support indexOf
-                    isControlKey = controlKeys.join(",").match(new RegExp(event.which));
-                // Some browsers just don't raise events for control keys. Easy.
-
-                if (!event.which // Control keys in most browsers. e.g. Firefox tab is 0
-                    || (48 <= event.which && event.which <= 57) // Always 0 through 9
-                    || isControlKey) {
-                    return;
-                } else {
-                    event.preventDefault();
-                }
-            });
-
-            jq(this).unbind('paste').bind('paste', function(e) {
-                var oldValue = this.value,
-                    $obj = this;
-                setTimeout(
-                    function() {
-                        var text = jq($obj).val();
-                        if (isNaN(text) || text.indexOf(".") != -1) {
-                            jq($obj).val(oldValue);
-                        }
-                        else if (typeof (doIfInteger) != "undefined") {
-                            doIfInteger();
-                        }
-                    }, 0);
-                return true;
-            });
-
-        });
-    },
-
-
-    forceCurrencySymbolsOnly: function(objSelector, lengthAfterSeparator) {
-        var reg = "";
-
-        if (typeof (lengthAfterSeparator) != "undefined" && !isNaN(lengthAfterSeparator)) {
-            reg = new RegExp(['^\\d*(', ASC.CRM.Data.CurrencyDecimalSeparator, '\\d{1,', lengthAfterSeparator, '})?$'].join(''));
-        } else {
-            reg = new RegExp(['^\\d*(', ASC.CRM.Data.CurrencyDecimalSeparator, '\\d*)?$'].join(''));
+        options.regex = new RegExp(['^', options.positiveOnly ? '' : '-?', '\\d*$'].join(''));
+        if (options.integerOnly === false) {
+            if (options.lengthAfterSeparator != null) {
+                options.regex = new RegExp(['^', options.positiveOnly ? '' : '-?', '\\d*(', options.separator, '\\d{1,', options.lengthAfterSeparator, '})?$'].join(''));
+            } else {
+                options.regex = new RegExp(['^', options.positiveOnly ? '' : '-?', '\\d*(', options.separator, '\\d*)?$'].join(''));
+            }
         }
 
-        jq(objSelector).keypress(function (event) {
-            var text = jq(this).val(),
-            // Backspace, Del,
-                controlKeys = [8, 9],
-            // IE doesn't support indexOf
-                isControlKey = controlKeys.join(",").match(new RegExp(event.which));
-            jq.data(this, "currencyValue", text);
-            // Some browsers just don't raise events for control keys. Easy.
-            if ((!event.which || // Control keys in most browsers. e.g. Firefox tab is 0
-                (48 <= event.which && event.which <= 57) || // Always 0 through 9
-                    isControlKey) ||
-                        text.length - text.replace(ASC.CRM.Data.CurrencyDecimalSeparator, '').length < 1
-                        && event.which == ASC.CRM.Data.KeyCodeCurrencyDecimalSeparator * 1)
-            {
-                jq.data(this, "currencyValue", text);
+        jq(options.parent).on("keypress", options.input, function (event) {
+            var obj = this,
+                key = event.which,
+                caret = obj.selectionStart,
+                val = jq(obj).val();
+
+            // Backspace, Tab, Del ...
+            if (key == 8 || key == 9 || key == 0) return;
+
+            if (event.hasOwnProperty("ctrlKey") && event.ctrlKey === true && (key === 99 || key === 97)) {//ctrl + c and ctrl + a
                 return;
+            }
+
+            if (event.hasOwnProperty("ctrlKey") && event.ctrlKey === true && key === 118) {//ctrl + v
+                return onPaste(obj, options);
             } else {
-                event.preventDefault();
+                key = String.fromCharCode(key);
+
+                var isSign = key == "-",
+                    isNumber = /\d/.test(key),
+                    hasSign = val.indexOf("-") != -1,
+                    isSeparator = (key == options.separator && val.length),
+                    hasSeparator = val.indexOf(options.separator) != -1; 
+
+
+                if (options.integerOnly) {
+                    if (options.positiveOnly) {
+                        if (isNumber) return;
+                    } else {
+                        if (isNumber || isSign && !hasSign && caret == 0) return;
+                    }
+                } else {
+
+                    var decimalPartLength = 0,
+                        decimalPartLengthCorrect = true;
+                    if (options.lengthAfterSeparator != null && isFinite(options.lengthAfterSeparator)) {
+                        if (isSeparator) {
+                            decimalPartLength = val.length - caret;
+                        }
+                        if ((isNumber || !options.positiveOnly && isSign) && hasSeparator) {
+                            decimalPartLength = val.length - val.indexOf(options.separator) - 1 + (caret > val.indexOf(options.separator) ? 1 : 0);
+                        }
+                        decimalPartLengthCorrect = decimalPartLength <= options.lengthAfterSeparator;
+                    }
+
+                    if (options.positiveOnly) {
+                        if ((isNumber || isSeparator && !hasSeparator) && decimalPartLengthCorrect) return;
+                    } else {
+                        if ((isNumber || (isSeparator && !hasSeparator) || (isSign && !hasSign && caret == 0)) && decimalPartLengthCorrect) return;
+                    }
+                }
+
+                event.returnValue = false;
+                if (event.preventDefault) event.preventDefault();
             }
         });
 
-        jq(objSelector).unbind('paste').bind('paste', function (e) {
-            var $obj = this,
-                old_text = jq($obj).val();
-            setTimeout(
-                function() {
-                    var text = jq($obj).val();
-                    if (reg.test(text)) {
-                        jq($obj).val(text);
-                    } else {
-                        jq($obj).val(old_text);
-                    }
-                }, 0);
-            return true;
+        jq(options.parent).on("paste", options.input, function (event) {
+            onPaste(this, options);
         });
+
+        function onPaste(obj, opts) {
+            var oldValue = obj.value,
+                $obj = jq(obj);
+
+            setTimeout(
+                function () {
+                    var text = $obj.val();
+                    if (!opts.regex.test(text)) {
+                        $obj.val(oldValue);
+                        return;
+                    }
+
+                    if (typeof (opts.onPasteCallback) === "function") opts.onPasteCallback();
+                }, 0);
+
+            return true;
+        };
     },
 
     /**
@@ -269,10 +229,6 @@ ASC.CRM.Common = (function() {
 
                 jq("body").append(["<div class='studio-action-panel tooltip' id='",
                                         name, id, "'>",
-                                        "<div class='corner-top ",
-                                        typeof (alwaysLeft) != "undefined" && alwaysLeft === true ? "right" : "left",
-                                        "'>",
-                                        "</div>",
                                         jq.htmlEncodeLight(title).replace(/&#10;/g, "<br/>").replace(/  /g, " &nbsp;"),
                                         params,
                                         "</div>"].join(''));
@@ -414,7 +370,7 @@ ASC.CRM.Common = (function() {
                 jq.tmpl("contactInfoCardResourcesTmpl", null).appendTo("body");
             }
 
-            var CRMContactInfoCard = new PopupBox('popup_ContactInfoCard', 320, 140, 'tintLight', 'borderBase', '',
+            var CRMContactInfoCard = new PopupBox('popup_ContactInfoCard', 320, 140, 'tintLight', 'popupbox-border', '',
             {
                 apiMethodName: "Teamlab.getCrmContact",
                 tmplName: "contactInfoCardTmpl",
@@ -480,13 +436,13 @@ ASC.CRM.Common = (function() {
         getAddressTextForDisplay: function (addressObj) {
             if (typeof (addressObj) != "object") return "";
 
-            var text = jq.htmlEncodeLight(addressObj.street),
-                tmp = addressObj.city != "" ? jq.htmlEncodeLight(addressObj.city) + ", " : "";
+            var text = addressObj.street != "" && addressObj.street != null ? jq.htmlEncodeLight(addressObj.street) : "",
+                tmp = addressObj.city != "" && addressObj.city != null ? jq.htmlEncodeLight(addressObj.city) + ", " : "";
 
-            if (addressObj.state != "") {
+            if (addressObj.state != "" && addressObj.state != null) {
                 tmp += jq.htmlEncodeLight(addressObj.state) + ", ";
             }
-            if (addressObj.zip != "") {
+            if (addressObj.zip != "" && addressObj.zip != null) {
                 tmp += jq.htmlEncodeLight(addressObj.zip);
             }
             tmp = jq.trim(tmp);
@@ -494,9 +450,9 @@ ASC.CRM.Common = (function() {
             if (tmp != "") {
                 text = text != "" ? text + ",<br/>" + tmp : tmp;
             }
-            text = text != "" && addressObj.country != ""
+            text = text != "" && addressObj.country != "" && addressObj.country != null
                     ? text + ",<br/>" + jq.htmlEncodeLight(addressObj.country)
-                    : (addressObj.country != "" ? jq.htmlEncodeLight(addressObj.country) : text);
+                    : (addressObj.country != "" && addressObj.country != null ? jq.htmlEncodeLight(addressObj.country) : text);
             return text;
         },
 
@@ -504,19 +460,19 @@ ASC.CRM.Common = (function() {
             if (typeof (addressObj) != "object") return "";
 
             var query = "";
-            if (addressObj.street != "") {
+            if (addressObj.street != "" && addressObj.street != null) {
                 query += jq.htmlEncodeLight(addressObj.street) + ", ";
             }
-            if (addressObj.city != "") {
+            if (addressObj.city != "" && addressObj.city != null) {
                 query += jq.htmlEncodeLight(addressObj.city) + ", ";
             }
-            if (addressObj.state != "") {
+            if (addressObj.state != "" && addressObj.state != null) {
                 query += jq.htmlEncodeLight(addressObj.state) + ", ";
             }
-            if (addressObj.zip != "") {
+            if (addressObj.zip != "" && addressObj.zip != null) {
                 query += jq.htmlEncodeLight(addressObj.zip) + ", ";
             }
-            if (addressObj.country != "") {
+            if (addressObj.country != "" && addressObj.country != null) {
                 query += addressObj.country + ", ";
             }
             query = jq.trim(query);
@@ -563,6 +519,7 @@ ASC.CRM.Common = (function() {
             var sortedList = [],
                 subList = {
                     label: "",
+                    labelid: 0,
                     list: []
                 };
 
@@ -581,6 +538,7 @@ ASC.CRM.Common = (function() {
                     if (field.fieldType == 4) {
                         subList = {
                             label: field.label,
+                            labelid: field.id,
                             list: []
                         };
                     }
@@ -1116,7 +1074,7 @@ ASC.CRM.Common = (function() {
                     newTab.close();
                 }
                 if (jq("#noMailAccountsError").length == 0) {
-                    jq.tmpl("blockUIPanelTemplate", {
+                    jq.tmpl("template-blockUIPanel", {
                         id: "noMailAccountsError",
                         headerTest: ASC.CRM.Resources.CRMCommonResource.Alert,
                         questionText: "",
@@ -1138,6 +1096,12 @@ ASC.CRM.Common = (function() {
 
             ASC.Mail.Utility.SaveMessageInDrafts(message);
 
+        },
+
+        setPostionPageLoader: function () {
+            jq(".mainPageContent").children(".loader-page").css({
+                top: jq(window).height() / 2 + "px"
+            });
         }
     }
 })();
@@ -1172,7 +1136,10 @@ ASC.CRM.PrivatePanel = (function() {
 })();
 
 
-ASC.CRM.HistoryView = (function() {
+ASC.CRM.HistoryView = (function () {
+    var historyCKEditor = null;
+    var busy = false;
+
     function onGetException(params, errors) {
         console.log('common.js ', errors);
         LoadingBanner.hideLoading();
@@ -1216,12 +1183,12 @@ ASC.CRM.HistoryView = (function() {
 
     var _readDataEvent = function () {
         var content = jq("#historyBlock textarea").val();
-        if (CKEDITOR.instances.historyCKEditor) {
-            content = CKEDITOR.instances.historyCKEditor.getData();
+        if (ASC.CRM.HistoryView.historyCKEditor) {
+            content = ASC.CRM.HistoryView.historyCKEditor.getData();
         }
         var _contactID, _entityType, _entityID,
             dataEvent = {
-                content: content,
+                content: jq.trim(content),
                 categoryId: eventCategorySelector.CategoryID
             };
         if (ASC.CRM.HistoryView.ContactID != 0) {
@@ -1250,16 +1217,6 @@ ASC.CRM.HistoryView = (function() {
             dataEvent.notifyUserList = window.SelectedUsers_HistoryUserSelector.IDs;
         }
         return dataEvent;
-    };
-
-    var _resizeFilter = function() {
-        var visible = jq("#eventsFilterContainer").is(":hidden") == false;
-        if (ASC.CRM.HistoryView.isFilterVisible == false && visible) {
-            ASC.CRM.HistoryView.isFilterVisible = true;
-            if (ASC.CRM.HistoryView.advansedFilter) {
-                jq("#eventsAdvansedFilter").advansedFilter("resize");
-            }
-        }
     };
 
     var _fillEventToEntityItems = function() {
@@ -1410,7 +1367,7 @@ ASC.CRM.HistoryView = (function() {
     };
 
     var _initEmptyScreen = function(){
-        jq.tmpl("emptyScrTmpl",
+        jq.tmpl("template-emptyScreen",
             { ID: "emptyContentForEventsFilter",
                 ImgSrc: ASC.CRM.Data.EmptyScrImgs["empty_screen_filter"],
                 Header: ASC.CRM.Resources.CRMCommonResource.EmptyHistoryHeader,
@@ -1426,6 +1383,7 @@ ASC.CRM.HistoryView = (function() {
 
     var _initFileUploader = function() {
         ASC.CRM.FileUploader.OnBeginCallback_function = function () {
+            busy = true;
             LoadingBanner.strLoading = ASC.CRM.Resources.CRMCommonResource.AddThisNoteProggress;
             LoadingBanner.showLoaderBtn("#historyBlock");
             jq("#historyBlock textarea, #historyBlock input, #historyBlock select").attr("disabled", true);
@@ -1440,6 +1398,7 @@ ASC.CRM.HistoryView = (function() {
                 {
                     success: ASC.CRM.HistoryView.CallbackMethods.add_event,
                     after: function (params) {
+                        busy = false;
                         LoadingBanner.hideLoaderBtn("#historyBlock");
                         jq("#historyBlock .middle-button-container a.button.blue.middle").addClass("disable");                        
                         jq("#historyBlock textarea, #historyBlock input, #historyBlock select").attr("disabled", false);
@@ -1625,9 +1584,9 @@ ASC.CRM.HistoryView = (function() {
     };
 
     return {
+        historyCKEditor: historyCKEditor,
         CallbackMethods: {
             get_events_by_filter: function(params, events) {
-
                 if (typeof (params.__nextIndex) == "undefined") {
                     ASC.CRM.HistoryView.ShowMore = false;
                 }
@@ -1666,7 +1625,7 @@ ASC.CRM.HistoryView = (function() {
                     jq("#emptyContentForEventsFilter:not(.display-none)").addClass("display-none");
                     jq("#eventsFilterContainer").show();
                     jq("#eventsList").show();
-                    _resizeFilter();
+                    ASC.CRM.HistoryView.resizeFilter();
 
                     LoadingBanner.hideLoading();
                 } else {
@@ -1699,7 +1658,47 @@ ASC.CRM.HistoryView = (function() {
             },
 
             add_event: function(params, event) {
-                ASC.CRM.HistoryView.addEventToHistoryLayout(params, event);
+                ASC.CRM.HistoryView.eventItemFactory(event);
+
+                if (ASC.CRM.HistoryView.historyCKEditor) {
+                    ASC.CRM.HistoryView.historyCKEditor.setData("");
+                    ASC.CRM.HistoryView.historyCKEditor.focus();
+                } else {
+                    jq("#historyBlock textarea").val("");
+                    jq("#historyBlock textarea").focus();
+                }
+
+                jq("#contactSwitcherSelect").val(-2).change();
+                jq("#typeSwitcherSelect").val(-2).change();
+                ASC.CRM.HistoryView.changeType(-1, '');
+                ASC.CRM.HistoryView.changeContact(-1);
+
+                jq("#usrSrListViewAdvUsrSrContainer_HistoryUserSelector .addUserLink").useradvancedSelector("undisable", window.SelectedUsers_HistoryUserSelector.IDs);
+                window.SelectedUsers_HistoryUserSelector.IDs.clear();
+                window.SelectedUsers_HistoryUserSelector.Names.clear();
+                jq("#selectedUsers_HistoryUserSelector div").remove();
+
+                if (!jq.browser.mobile && !params.fromAttachmentsControl) {
+                    ASC.CRM.FileUploader.reinit();
+                    ASC.CRM.HistoryView.showAttachmentPanel(false);
+                }
+
+                if (jq("#eventsTable tbody tr").length == 0) {
+                    jq("#emptyContentForEventsFilter:not(.display-none)").addClass("display-none");
+                    jq("#eventsFilterContainer").show();
+                    jq("#eventsList").show();
+                    ASC.CRM.HistoryView.resizeFilter();
+                }
+                jq.tmpl("historyRowTmpl", event).prependTo("#eventsTable tbody");
+
+                if (event.files != null)
+                    jq.dropdownToggle({
+                        dropdownID: "eventAttach_" + event.id,
+                        switcherSelector: "#eventAttachSwither_" + event.id,
+                        addTop: 5,
+                        rightPos: true
+                    });
+
                 ASC.CRM.HistoryView.EventsList.unshift(event);
                 if (event.files != null) {
                     if (typeof (window.Attachments) != "undefined") {
@@ -1709,7 +1708,7 @@ ASC.CRM.HistoryView = (function() {
             },
 
             delete_event: function(params, event) {
-                jq("#eventAttach_" + event.id).find("div[id^=fileContent_]").each(function() {
+                jq("#eventAttach_" + event.id).find("[id^=fileContent_]").each(function() {
                     var fileID = jq(this).attr("id").split("_")[1];
                     if (typeof (window.Attachments) != "undefined") {
                         window.Attachments.deleteFileFromLayout(fileID);
@@ -1777,14 +1776,28 @@ ASC.CRM.HistoryView = (function() {
             _initEventCategorySelector();
 
             setInterval(function() {
-                var text = jq.trim(jq("#historyCKEditor").val()),
-                    $input = jq("#contactProfileEdit .info_for_company input[name=baseInfo_companyName]");
-                if(CKEDITOR.instances.historyCKEditor){
-                    text = jq.trim(CKEDITOR.instances.historyCKEditor.getData());
+                if (jq("#historyBlock").is(":visible")) {
+                    ASC.CRM.HistoryView.activate();
                 }
-                if (text == "") {
+            }, 100);
+
+            setInterval(function () {
+                var text = jq.trim(jq("#historyCKEditor").val());
+
+                if (ASC.CRM.HistoryView.historyCKEditor) {
+                    text = jq.trim(ASC.CRM.HistoryView.historyCKEditor.getData());
+                }
+
+                if (!text.length) {
+                    jq("#historyBlock .lond-data-text").text("").addClass("display-none");
+                    jq("#historyBlock .middle-button-container a.button.blue.middle").addClass("disable");
+                } else if (text.length > ASC.CRM.Data.MaxHistoryEventCharacters) {
+                    jq("#historyBlock .lond-data-text")
+                        .text(ASC.CRM.Resources.CRMCommonResource.HistoryLongDataMsg.format(text.length - ASC.CRM.Data.MaxHistoryEventCharacters))
+                        .removeClass("display-none");
                     jq("#historyBlock .middle-button-container a.button.blue.middle").addClass("disable");
                 } else {
+                    jq("#historyBlock .lond-data-text").text("").addClass("display-none");
                     jq("#historyBlock .middle-button-container a.button.blue.middle.disable").removeClass("disable");
                 }
             }, 500);
@@ -1792,21 +1805,45 @@ ASC.CRM.HistoryView = (function() {
             _initFilter();
         },
 
+        bindCKEditorEvents: function () {
+            if (ASC.CRM.HistoryView.historyCKEditor) {
+                CKEDITOR.instances['historyCKEditor'].on('focus', function (event) {
+                    jq("#historyCKEditor").trigger('click');
+                    jq(".hasDatepicker").datepicker("hide");
+                });
+            }
+        },
+
         setFilter: function(evt, $container, filter, params, selectedfilters) { _renderContent(); },
         resetFilter: function(evt, $container, filter, selectedfilters) { _renderContent(); },
 
-        activate: function() {
+        activate: function () {
             if (ASC.CRM.HistoryView.isTabActive == false) {
                 ASC.CRM.HistoryView.isTabActive = true;
-                LoadingBanner.displayLoading();
-                if (ASC.CRM.HistoryView.ContactID > 0) {
-                    _fillEventToEntityItems();
-                } else {
-                    _fillEventToEntityContacts();
-                }
+
+                ASC.CRM.HistoryView.refreshToEntitySelectors();
                 _renderContent();
-            } else if (ASC.CRM.HistoryView.advansedFilter) {
-                jq("#eventsAdvansedFilter").advansedFilter("resize");
+            }
+        },
+
+        refreshToEntitySelectors: function () {
+            LoadingBanner.displayLoading();
+            if (ASC.CRM.HistoryView.ContactID > 0) {
+                _fillEventToEntityItems();
+            } else {
+                _fillEventToEntityContacts();
+            }
+        },
+
+        resizeFilter: function () {
+            if (typeof(ASC.CRM.HistoryView.advansedFilter) !== "undefined") {
+                var visible = jq("#eventsFilterContainer").is(":hidden") == false;
+                if (ASC.CRM.HistoryView.isFilterVisible == false && visible) {
+                    ASC.CRM.HistoryView.isFilterVisible = true;
+                    if (ASC.CRM.HistoryView.advansedFilter) {
+                        jq("#eventsAdvansedFilter").advansedFilter("resize");
+                    }
+                }
             }
         },
 
@@ -1920,12 +1957,17 @@ ASC.CRM.HistoryView = (function() {
             }
         },
 
-        addEvent: function() {
+        addEvent: function(btnObj) {
+            if (busy || jq(btnObj).hasClass("disable")) return;
+
             var text = jq("#historyBlock textarea").val();
-            if (CKEDITOR.instances.historyCKEditor) {
-                text = CKEDITOR.instances.historyCKEditor.getData();
+            if (ASC.CRM.HistoryView.historyCKEditor) {
+                text = ASC.CRM.HistoryView.historyCKEditor.getData();
             }
-            if (jq.trim(text) == "") return;
+
+            text = jq.trim(text);
+
+            if (!text.length || text.length > ASC.CRM.Data.MaxHistoryEventCharacters) return;
 
             if (!jq.browser.mobile && ASC.CRM.FileUploader.getUploadFileCount() > 0) {
                 ASC.CRM.FileUploader.start();
@@ -1935,11 +1977,13 @@ ASC.CRM.HistoryView = (function() {
                 {
                     success: ASC.CRM.HistoryView.CallbackMethods.add_event,
                     before: function(params) {
+                        busy = true;
                         LoadingBanner.strLoading = ASC.CRM.Resources.CRMCommonResource.AddThisNoteProggress;
                         LoadingBanner.showLoaderBtn("#historyBlock");
                         jq("#historyBlock textarea, #historyBlock input, #historyBlock select").attr("disabled", true);
                     },
                     after: function (params) {
+                        busy = false;
                         LoadingBanner.hideLoaderBtn("#historyBlock");
                         jq("#historyBlock .middle-button-container a.button.blue.middle").addClass("disable");
                         jq("#historyBlock textarea, #historyBlock input, #historyBlock select").attr("disabled", false);
@@ -1948,48 +1992,6 @@ ASC.CRM.HistoryView = (function() {
             }
         },
 
-        addEventToHistoryLayout: function(params, event) {
-            ASC.CRM.HistoryView.eventItemFactory(event);
-
-            if (CKEDITOR.instances.historyCKEditor) {
-                CKEDITOR.instances.historyCKEditor.setData("");
-                CKEDITOR.instances.historyCKEditor.focus();
-            } else {
-                jq("#historyBlock textarea").val("");
-                jq("#historyBlock textarea").focus();
-            }
-
-            jq("#contactSwitcherSelect").val(-2).change();
-            jq("#typeSwitcherSelect").val(-2).change();
-            ASC.CRM.HistoryView.changeType(-1, '');
-            ASC.CRM.HistoryView.changeContact(-1);
-
-            jq("#usrSrListViewAdvUsrSrContainer_HistoryUserSelector .addUserLink").useradvancedSelector("undisable", window.SelectedUsers_HistoryUserSelector.IDs);
-            window.SelectedUsers_HistoryUserSelector.IDs.clear();
-            window.SelectedUsers_HistoryUserSelector.Names.clear();
-            jq("#selectedUsers_HistoryUserSelector div").remove();
-
-            if (!jq.browser.mobile && !params.fromAttachmentsControl) {
-                ASC.CRM.FileUploader.reinit();
-                ASC.CRM.HistoryView.showAttachmentPanel(false);
-            }
-
-            if (jq("#eventsTable tbody tr").length == 0) {
-                jq("#emptyContentForEventsFilter:not(.display-none)").addClass("display-none");
-                jq("#eventsFilterContainer").show();
-                jq("#eventsList").show();
-                _resizeFilter();
-            }
-            jq.tmpl("historyRowTmpl", event).prependTo("#eventsTable tbody");
-
-            if (event.files != null)
-                jq.dropdownToggle({
-                    dropdownID: "eventAttach_" + event.id,
-                    switcherSelector: "#eventAttachSwither_" + event.id,
-                    addTop: 5,
-                    rightPos: true
-                });
-        },
 
         deleteEvent: function(id) {
             Teamlab.removeCrmHistoryEvent({}, id,
@@ -2043,7 +2045,23 @@ ASC.CRM.HistoryView = (function() {
             }
         },
 
-        appendOption: function($select, option) {
+        appendOption: function (type, option) {
+            if (type != "contact" && type != "case" && type != "opportunity") return;
+
+            var entityTypeOpportunity = 1,
+                $select = jq('#contactSwitcherSelect');
+            if (type == "case") {
+                $select = jq('#casesSwitcherSelect');
+            } else if (type == "opportunity") {
+                $select = jq('#dealsSwitcherSelect');
+
+                var $hiddenOptDeal = jq("#typeSwitcherSelect>option[value='" + entityTypeOpportunity + "'].hidden");
+                if ($hiddenOptDeal.length == 1) {
+                    $hiddenOptDeal.removeClass("hidden");
+                    jq("#typeSwitcherSelect").tlCombobox();
+                }
+            }
+
             var $tlcombobox = $select.parents('span.tl-combobox:first');
             $tlcombobox = $tlcombobox.length > 0 ? $tlcombobox : $select;
             $tlcombobox.parent().removeClass('empty-select');
@@ -2052,7 +2070,16 @@ ASC.CRM.HistoryView = (function() {
             return $select;
         },
 
-        removeOption: function($select, value) {
+        removeOption: function (type, value) {
+            if (type != "contact" && type != "case" && type != "opportunity") return;
+
+            var $select = jq('#contactSwitcherSelect');
+            if (type == "case") {
+                $select = jq('#casesSwitcherSelect');
+            } else if (type == "opportunity") {
+                $select = jq('#dealsSwitcherSelect');
+            }
+
             $select.find('option[value="' + value + '"]').remove();
             $select.tlCombobox();
             var 
@@ -2072,14 +2099,6 @@ ASC.CRM.HistoryView = (function() {
                 $tlcombobox.parent().addClass('empty-select');
             }
             return $select;
-        },
-
-        appendOptionToContact: function(option) {
-            return ASC.CRM.HistoryView.appendOption(jq('#contactSwitcherSelect'), option);
-        },
-
-        removeOptionFromContact: function(value) {
-            return ASC.CRM.HistoryView.removeOption(jq('#contactSwitcherSelect'), value);
         }
     };
 })();
@@ -2127,7 +2146,7 @@ ASC.CRM.HistoryMailView = (function () {
                             iframe.attr('scrolling', 'no');
                             setTimeout(function () {
                                 iframe.attr('scrolling', 'auto');
-                                _updateIframeSize(message.id);
+                                _updateIframeSize(message.id, true);
                             }, 1);
                         });
                     }
@@ -2135,15 +2154,22 @@ ASC.CRM.HistoryMailView = (function () {
             }
 
             var index = $body.find("img").length;
-            $body.find('img').each(function () {
-                jq(this).bind("load", function () {
-                    if (--index == 0) {
-                        _updateIframeSize(message.id);
-                    }
-                });
-            });
+            if (index > 0) {
+                var timerId = setTimeout(function () {
+                    _updateIframeSize(message.id);
+                }, 50);
 
-            _updateIframeSize(message.id);
+                $body.find('img').each(function () {
+                    jq(this).bind("load", function () {
+                        if (--index == 0) {
+                            clearTimeout(timerId);
+                            _updateIframeSize(message.id, true);
+                        }
+                    });
+                });
+            } else {
+                _updateIframeSize(message.id, true);
+            }
         });
 
         return $frame;
@@ -2164,7 +2190,7 @@ ASC.CRM.HistoryMailView = (function () {
         return param;
     };
 
-    var _updateIframeSize = function (id) {
+    var _updateIframeSize = function (id, finish) {
         var node_type = {
             element: 1,
             text: 3
@@ -2174,16 +2200,16 @@ ASC.CRM.HistoryMailView = (function () {
         var iframe = jq('#message_body_frame_' + id),
             body = iframe.contents().find('body');
 
-        body.css('cssText', 'height: auto; max-width: ' + iframe.width() + 'px !important;');
-
+        //body.css('cssText', 'height: auto; max-width: ' + iframe.width() + 'px !important;');
+        body.css('cssText', 'height: 0; max-width: ' + iframe.width() + 'px !important;');
         var contents = body.contents(),
             new_height = 0,
             text_node_param;
 
         if (window.ActiveXObject || window.sidebar) { // IE, Firefox
-            for (var i = 0; i < contents.length; i++) {
-                var offset = 0;
-                var item = contents[i];
+            for (var i = 0, n = contents.length; i < n; i++) {
+                var offset = 0,
+                    item = contents[i];
 
                 if (item.nodeType == node_type.element) {
                     offset = jq(item).offset().top + Math.max(item.scrollHeight, item.clientHeight, jq(item).outerHeight(true));
@@ -2197,10 +2223,14 @@ ASC.CRM.HistoryMailView = (function () {
             new_height += body.offset().top;
         } else {
             new_height = iframe.contents().outerHeight(true);
+            if (true == finish) new_height += body.offset().top;
         }
 
-        // for scroll
-        if (window.ActiveXObject) new_height += 15;
+        // for scroll. It's height about 17px
+        if (true == finish) {
+            new_height += 20;
+        }
+
 
         iframe.css('height', new_height + 'px');
     };
@@ -2271,15 +2301,14 @@ ASC.CRM.ContactSelector = new function() {
 
     var _initAutocomplete = function($input, advancedInput, objName, obj) {
         if ($input.length == 0) return;
-
         $input.autocomplete({
             //appendTo: "#selector_" + obj.ObjName,
             minLength: 0,
             delay: 300,
-            focus: function(event, ui) {
+            focus: function (event, ui) {
                 event.preventDefault ? event.preventDefault() : (event.returnValue = false);
 
-                var autocomplete = jq(this).data("uiAutocomplete"),
+                var autocomplete = jq(this).data("ui-autocomplete"),
                     menu = autocomplete.menu,
 
                     scroll = menu.element.scrollTop(),
@@ -2303,9 +2332,14 @@ ASC.CRM.ContactSelector = new function() {
                 }
             },
             selectFirst: false,
-            search: function(event, ui) { return true; },
+            search: function (event, ui) {
+                if (jq(advancedInput).is(":visible")) {
+                    return true;
+                } else {
+                    return false;
+                }
+            },
             source: function(request, response) {
-
                 if (obj.IsInPopup) {
                     var ul = this.menu.element,
                         popupParent = jq(advancedInput).parents(".blockUI.blockPage:first");
@@ -2347,7 +2381,7 @@ ASC.CRM.ContactSelector = new function() {
             }
         });
 
-        $input.data("uiAutocomplete")._renderMenu = function (ul, items) {
+        $input.data("ui-autocomplete")._renderMenu = function (ul, items) {
             var s = this;
             jq.each(items, function (jq, items) {
                 s._renderItemData(ul, items);
@@ -2361,7 +2395,7 @@ ASC.CRM.ContactSelector = new function() {
             }
         };
 
-        $input.data("uiAutocomplete")._renderItem = function(ul, item) {
+        $input.data("ui-autocomplete")._renderItem = function(ul, item) {
             jq("#noMatches_" + objName).hide();
             if (jq.inArray(item.id, obj.SelectedContacts) != -1) return;
             if (typeof (obj.ExcludedArrayIDs) != "undefined") {
@@ -2376,14 +2410,14 @@ ASC.CRM.ContactSelector = new function() {
                         .appendTo(ul);
         };
 
-        $input.data("uiAutocomplete")._resizeMenu = function() {
+        $input.data("ui-autocomplete")._resizeMenu = function() {
             var ul = this.menu.element,
                 $trObj = jq(advancedInput).children("tbody").children("tr"),
                 inputWidth = $trObj.width() - ($trObj.children("td").length - 3) * 18;
             ul.outerWidth(Math.max(inputWidth, this.element.outerWidth()));
         };
 
-        $input.data("uiAutocomplete")._suggest = function(a) {
+        $input.data("ui-autocomplete")._suggest = function(a) {
             var b = this.menu.element.empty().zIndex(this.element.zIndex() + 1);
             this._renderMenu(b, a);
             //this.menu.deactivate();
@@ -2543,7 +2577,7 @@ ASC.CRM.ContactSelector = new function() {
             jq($selectorRows[$selectorRows.length - 1]).addClass("withPlus");
         };
 
-        this.changeContact = function(objID) {
+        this.changeContact = function (objID) {
             var id = parseInt(jq("#contactID_" + objID).val()),
                 index = jq.inArray(id, CurrentItem.SelectedContacts);
             if (index != -1) {
@@ -2585,7 +2619,7 @@ ASC.CRM.ContactSelector = new function() {
         };
 
 
-        this.crossButtonEventClick = function(objID) {
+        this.crossButtonEventClick = function (objID) {
             jq("#selectorContent_" + objID).children(".contactSelector-inputContainer").find(".crossButton").hide();
 
             if (typeof (CurrentItem.CrossButtonEventClick) == "undefined") {
@@ -2602,7 +2636,7 @@ ASC.CRM.ContactSelector = new function() {
             }
         };
 
-        this.setContact = function(obj, id, title, img) {
+        this.setContact = function (obj, id, title, img) {
             if (jq(obj).length == 0) return;
             var objID = jq(obj).attr('id').replace("contactTitle_", ""),
                 $avatarImg = jq("#infoContent_" + objID).find('img:first');
@@ -2635,14 +2669,14 @@ ASC.CRM.ContactSelector = new function() {
             jq(window).trigger("setContactInSelector", [id, this.ObjName]);
         };
 
-        this.showInfoContent = function(obj) {
+        this.showInfoContent = function (obj) {
             var objID = jq(obj).attr('id').replace("contactTitle_", "");
             jq('#selectorContent_' + objID).hide();
             jq("#newContactContent_" + objID).hide();
             jq('#infoContent_' + objID).show();
         };
 
-        this.showSelectorContent = function(obj) {
+        this.showSelectorContent = function (obj) {
             var objID = jq(obj).attr('id').replace("contactTitle_", "");
 
             if (jq.trim(jq(obj).val()) == "") {
@@ -2718,7 +2752,7 @@ ASC.CRM.ContactSelector = new function() {
         };
 
 
-        this.quickSearch = function(objID) {
+        this.quickSearch = function (objID) {
             _hideAllAutocompleteBlocks();
             var $input = jq("#contactTitle_" + objID);
             $input.autocomplete("search", jq.trim($input.val()));
@@ -2828,13 +2862,6 @@ ASC.CRM.ContactSelector = new function() {
                 jq("#newContactFirstName_" + objID).removeClass("requiredInputError");
             }
 
-            if (!isCompany && lastName == "") {
-                jq("#newContactLastName_" + objID).addClass("requiredInputError");
-                isValid = false;
-            } else {
-                jq("#newContactLastName_" + objID).removeClass("requiredInputError");
-            }
-
             if (!isValid)
                 return false;
 
@@ -2893,7 +2920,7 @@ ASC.CRM.ContactSelector = new function() {
             jq("#newContactContent_" + objID + " input").removeClass("requiredInputError");
         };
 
-        jq(document).ready(function() {
+        jq(document).ready(function () {
             CurrentItem.drawContactSelector();
             jq(window).trigger("contactSelectorIsReady", [objName]);
         });
@@ -2979,12 +3006,6 @@ ASC.CRM.CategorySelector = function (objName, currentCategory) {
 };
 
 ASC.CRM.TagView = (function() {
-    var callback_delete_tag = function(params, tag) {
-        params.element.remove();
-        jq("#addTagDialog .h_line").show();
-        jq.tmpl("tagInAllTagsTmpl", { "tagLabel": tag }).appendTo("#addTagDialog ul.dropdown-content");
-        jq(window).trigger("deleteTagComplete", tag);
-    };
 
     var _addTagToCurrentEntity = function (params, text) {
         Teamlab.addCrmTag(params, ASC.CRM.TagView.EntityType, ASC.CRM.TagView.EntityID, text,
@@ -3023,6 +3044,19 @@ ASC.CRM.TagView = (function() {
         }
     };
 
+    var _deleteTag = function ($element) {
+        var text = jQuery.base64.decode($element.children(".tag_title:first").attr("data-value"));
+
+        if (ASC.CRM.TagView.EntityID != 0 && !ASC.CRM.TagView.OnlyInterface) {
+            Teamlab.removeCrmTag({ element: $element }, ASC.CRM.TagView.EntityType, ASC.CRM.TagView.EntityID, text,
+                {
+                    success: ASC.CRM.TagView.callback_delete_tag
+                });
+        } else {
+            ASC.CRM.TagView.callback_delete_tag({ element: $element }, Teamlab.create('crm-tag', null, text));
+        }
+    };
+
     return {
         init: function(entityType, onlyInterface, params) {
             ASC.CRM.TagView.EntityType = entityType;
@@ -3030,6 +3064,9 @@ ASC.CRM.TagView = (function() {
 
             if (typeof (params) != "undefined" && params.hasOwnProperty("addTag") && typeof (params.addTag) === "function") {
                 ASC.CRM.TagView.addTagExtension = params.addTag;
+            }
+            if (typeof (params) != "undefined" && params.hasOwnProperty("deleteTag") && typeof (params.deleteTag) === "function") {
+                ASC.CRM.TagView.deleteTag = params.deleteTag;
             }
 
             var URLParamID = jq.getURLParam("id");
@@ -3052,7 +3089,7 @@ ASC.CRM.TagView = (function() {
             });
 
             jq("#addThisTag").click(function() {
-                ASC.CRM.TagView.addTagExtension({}, jq("#addTagDialog input:first").val().trim());
+                ASC.CRM.TagView.addTagExtension({}, jq.trim(jq("#addTagDialog input:first").val()));
             });
 
             jq("#addTagDialog input").focus().unbind("keyup").keyup(function(e) {
@@ -3067,7 +3104,7 @@ ASC.CRM.TagView = (function() {
                 }
 
                 if (code == 13) {
-                    var text = jq("#addTagDialog input:first").val().trim();
+                    var text = jq.trim(jq("#addTagDialog input:first").val());
                     if (text == "") {
                         return;
                     }
@@ -3082,17 +3119,8 @@ ASC.CRM.TagView = (function() {
             }
         },
 
-        deleteTag: function($element) {
-            var text = jQuery.base64.decode($element.children(".tag_title:first").attr("data-value"));
-
-            if (ASC.CRM.TagView.EntityID != 0 && !ASC.CRM.TagView.OnlyInterface) {
-                Teamlab.removeCrmTag({ element: $element }, ASC.CRM.TagView.EntityType, ASC.CRM.TagView.EntityID, text,
-                    {
-                        success: callback_delete_tag
-                    });
-            } else {
-                callback_delete_tag({ element: $element }, Teamlab.create('crm-tag', null, text));
-            }
+        deleteTag: function ($element) {
+            _deleteTag($element);
         },
 
         addTagExtension: function (params, text) {
@@ -3117,11 +3145,18 @@ ASC.CRM.TagView = (function() {
             jq(window).trigger("addTagComplete", tag);
         },
 
+        callback_delete_tag: function(params, tag) {
+            params.element.remove();
+            jq("#addTagDialog .h_line").show();
+            jq.tmpl("tagInAllTagsTmpl", { "tagLabel": tag }).appendTo("#addTagDialog ul.dropdown-content");
+            jq(window).trigger("deleteTagComplete", tag);
+        },
+
         prepareTagDataForSubmitForm: function($input) {
             var tagData = {};
             tagData.tagListInfo = [];
             jq("#tagContainer .tag_item .tag_title").each(function() {
-                var tagValue = jq(this).text().trim();
+                var tagValue = jq.trim(jq(this).text());
                 if (tagValue) {
                     tagData.tagListInfo.push(tagValue);
                 }
@@ -3143,10 +3178,22 @@ ASC.CRM.ImportFromCSVView = (function() {
         ASC.CRM.Common.removeExportButtons();
         jq("#menuCreateNewTask").bind("click", function() { ASC.CRM.TaskActionView.showTaskPanel(0, "", 0, null, {}); });
     };
+
     return {
-        init: function(intEntityType) {
+        init: function(intEntityType, entityType) {
             jq("#delimiterCharacterSelect,#encodingSelect, #quoteCharacterSelect").tlcombobox();
             initOtherActionMenu();
+
+            if (intEntityType != 3) {//not tasks
+                jq.tmpl("tagViewTmpl",
+                       {
+                           tags: [],
+                           availableTags: ASC.CRM.Data.tagList
+                       })
+                       .appendTo("#importFromCSVTags");
+                ASC.CRM.TagView.init(entityType, true);
+            }
+
             if (intEntityType == 0) {//contact
 
                 ASC.CRM.UserSelectorListView.Init(
@@ -3178,19 +3225,26 @@ ASC.CRM.ImportFromCSVView = (function() {
                 $html.appendTo("#makePublicPanel");
             }
 
-            AjaxPro.Utils.ImportFromCSV.GetStatus(intEntityType, function(res) {
-                if (res.error != null) {
-                    alert(res.error.Message);
-                    return;
-                }
-                if (res.value == null || res.value.IsCompleted) {
-                    ASC.CRM.ImportEntities.init(intEntityType);
-                } else {
-                    jq("#importFromCSVSteps").hide();
-                    jq("#importStartedFinalMessage").show();
-                    ASC.CRM.ImportEntities.checkImportStatus(true);
-                }
-            });
+            Teamlab.getStatusCrmImportFromCSV({},
+                { entityType: entityType },
+                {
+                    max_request_attempts: 1,
+                    success: function (params, response) {
+                        if (response == null || jQuery.isEmptyObject(response) || response.isCompleted) {
+                            ASC.CRM.ImportEntities.init(intEntityType, entityType);
+                        } else {
+                            jq("#importFromCSVSteps").hide();
+                            jq("#importStartedFinalMessage").show();
+                            ASC.CRM.ImportEntities.checkImportStatus(true, entityType);
+                        }
+                    },
+                    error: function (params, errors) {
+                        var err = errors[0];
+                        if (err != null) {
+                            toastr.error(err);
+                        }
+                    }
+                });
         }
     };
 })();
@@ -3200,6 +3254,7 @@ ASC.CRM.ImportEntities = (function ($) {
         _curIndexSampleRow = 0,
         _ajaxUploader,
         _entityType,
+        _entityTypeName,
         _sampleRowCache = new Object(),
         _settingsBase = new Object();
 
@@ -3220,14 +3275,6 @@ ASC.CRM.ImportEntities = (function ($) {
     };
 
     var _getSampleRow = function() {
-        AjaxPro.onLoading = function(b) {
-            if (b) {
-                jq("#columnMapping thead tr td:last span:last").block();
-            } else {
-                jq("#columnMapping thead tr td:last span:last").unblock();
-            }
-        };
-
         var sampleRowCacheKey = _CSVFileURI + '' + _curIndexSampleRow;
 
         if (_sampleRowCache[sampleRowCacheKey]) {
@@ -3235,16 +3282,26 @@ ASC.CRM.ImportEntities = (function ($) {
             return;
         }
 
-        AjaxPro.Utils.ImportFromCSV.GetSampleRow(_CSVFileURI, _curIndexSampleRow, jq.toJSON(_settingsBase),
-            function(result) {
-                if (result.error != null) {
-                    _showErrorPanel(result.error.Message);
-                    return;
+        Teamlab.getCrmImportFromCSVSampleRow({},
+            { csvFileURI:_CSVFileURI, indexRow : _curIndexSampleRow, jsonSettings: jq.toJSON(_settingsBase) },
+            {
+                before: function (params) {
+                    jq("#columnMapping thead tr td:last span:last").block();
+                },
+                after: function (params) {
+                    jq("#columnMapping thead tr td:last span:last").unblock();
+                },
+                success: function (params, response) {
+                    _sampleRowCache[sampleRowCacheKey] = response;
+                    _refreshSampleRowItems(response);
+                },
+                error: function (params, errors) {
+                    var err = errors[0];
+                    if (err != null) {
+                        _showErrorPanel(err);
+                    }
                 }
-                _sampleRowCache[sampleRowCacheKey] = result.value;
-                _refreshSampleRowItems(result.value);
-            }
-          );
+            });
     };
 
     var _nextStep = function(step) {
@@ -3254,13 +3311,18 @@ ASC.CRM.ImportEntities = (function ($) {
         jq(jq.format("#importFromCSVSteps dt:eq({0})", step)).show();
     };
 
-    var _ajaxUploaderOnSubmitCallback = function(file, extension) {
-        _settingsBase = {
-            "has_header": jq("#ignoreFirstRow").is(":checked"),
-            "delimiter_character": jq("#delimiterCharacterSelect option:selected").val(),
-            "encoding": jq("#encodingSelect option:selected").val(),
-            "quote_character": jq("#quoteCharacterSelect option:selected").val()
+    var _getSettingsBase = function () {
+        return {
+            has_header: jq("#ignoreFirstRow").is(":checked"),
+            delimiter_character: jq("#delimiterCharacterSelect option:selected").val(),
+            encoding: jq("#encodingSelect option:selected").val(),
+            quote_character: jq("#quoteCharacterSelect option:selected").val()
         };
+    };
+
+    var _ajaxUploaderOnSubmitCallback = function(file, extension) {
+        _settingsBase = _getSettingsBase();
+
         this._settings.data["importSettings"] = jq.toJSON(_settingsBase);
         LoadingBanner.strLoading = ASC.CRM.Resources.CRMCommonResource.ImportFromCSVStepOneProgressLable
         LoadingBanner.showLoaderBtn("#importFromCSVSteps");
@@ -3311,12 +3373,16 @@ ASC.CRM.ImportEntities = (function ($) {
 
                     if (leftBracketColumnCount != rightBracketColumnCount) return;
                 }
-                var findedItem = curSelect.find(jq.format("option:contains('{0}'):first", columnHeader)).attr("selected", true);
+                var findedItem = curSelect.find("option")
+                                .filter(function(){
+                                    return jq.trim(jq(this).text()).toLowerCase() == columnHeader.toLowerCase();
+                                })
+                                .first();
+                findedItem.attr("selected", true);
             }
             catch (e) {
             }
         });
-
 
         selectItems.on("change", function() {
             var curSelector = jq(this);
@@ -3329,18 +3395,12 @@ ASC.CRM.ImportEntities = (function ($) {
 
         selectItems.change();
 
-        jq("#uploadCSVFile").removeClass("edit_button").addClass("import_button");
-
-        jq("#uploadCSVFile").text(ASC.CRM.Resources.CRMJSResource.SelectCSVFileButton);
-        jq("#uploadCSVFile").prev().hide();
-
         _nextStep(1);
         LoadingBanner.hideLoaderBtn("#importFromCSVSteps");
     };
 
-
     var _initErrorPanel = function () {
-        jq.tmpl("blockUIPanelTemplate", {
+        jq.tmpl("template-blockUIPanel", {
             id: "importErrorPanel",
             headerTest: ASC.CRM.Resources.CRMCommonResource.Error,
             questionText: "",
@@ -3352,17 +3412,19 @@ ASC.CRM.ImportEntities = (function ($) {
     };
 
     var _showErrorPanel = function (msg) {
+        LoadingBanner.hideLoaderBtn("#importFromCSVSteps");
         jq("#importErrorPanel .errorNote").text(msg);
         //PopupKeyUpActionProvider.EnableEsc = false;
         StudioBlockUIManager.blockUI("#importErrorPanel", 500, 200, 0);
     }
 
     return {
-        init: function(entityType) {
+        init: function (entityType, entityTypeName) {
 
             _entityType = entityType;
+            _entityTypeName = entityTypeName;
 
-            if (_entityType == 0) {
+            if (_entityType == 0 || entityType == "0") {
                 jq("#removingDuplicatesBehaviorPanel").show();
             } else {
                 jq("#removingDuplicatesBehaviorPanel").hide();
@@ -3376,9 +3438,10 @@ ASC.CRM.ImportEntities = (function ($) {
             });
 
             _ajaxUploader = new AjaxUpload('uploadCSVFile', {
-                action: 'ajaxupload.ashx?type=ASC.Web.CRM.Controls.Common.ImportFileHandler,ASC.Web.CRM',
+                action: 'ajaxupload.ashx?type=ASC.Web.CRM.Classes.ImportFileHandler,ASC.Web.CRM',
                 autoSubmit: false,
-                onChange: function(file, extension) {
+                onChange: function (file, extension) {
+                    _CSVFileURI = "";
                     if (extension == "") {
                         jq("#uploadCSVFile").removeClass("edit_button").addClass("import_button");
                         jq("#uploadCSVFile").text(ASC.CRM.Resources.CRMJSResource.SelectCSVFileButton);
@@ -3414,60 +3477,7 @@ ASC.CRM.ImportEntities = (function ($) {
 
             if (step != 0) return;
 
-            jq("#importFromCSVSteps dd:first .middle-button-container a.button.blue.middle:first").addClass("disable");
-        },
-        getPreviewImportData: function() {
-            var columnMappingSelector = jq("#columnMapping select"),
-                firstNameOptions = columnMappingSelector.find("option[name=firstName]:selected"),
-                lastNameOptions = columnMappingSelector.find("option[name=lastName]:selected"),
-                companyNameOptions = columnMappingSelector.find("option[name=companyName]:selected");
-
-            if ((firstNameOptions.length == 0 || lastNameOptions.length == 0) && companyNameOptions.length == 0) {
-                _showErrorPanel(ASC.CRM.Resources.CRMJSResource.ErrorNotMappingBasicColumn);
-                return;
-            }
-
-            if (!((firstNameOptions.length == 1 && lastNameOptions.length == 1) || (companyNameOptions.length == 1))) {
-                _showErrorPanel(ASC.CRM.Resources.CRMJSResource.ErrorMappingMoreBasicColumn);
-                return;
-            }
-
-            var companyNameColumnIndex = 0,
-                firstNameColumnIndex = 0,
-                lastNameColumnIndex = 0;
-
-            if (companyNameOptions.length == 1) {
-                companyNameColumnIndex = columnMappingSelector.index(jq(companyNameOptions[0]).parents("select"));
-            }
-
-            if (firstNameOptions.length == 1 && lastNameOptions.length == 1) {
-                firstNameColumnIndex = columnMappingSelector.index(jq(firstNameOptions[0]).parents("select"));
-                lastNameColumnIndex = columnMappingSelector.index(jq(lastNameOptions[0]).parents("select"));
-            }
-
-            AjaxPro.onLoading = function(b) {
-                if (b) {
-                    LoadingBanner.showLoaderBtn("#importFromCSVSteps");
-                } else {
-                    LoadingBanner.hideLoaderBtn("#importFromCSVSteps");
-                }
-            };
-
-            AjaxPro.Utils.ImportFromCSV.GetPreviewImportData(_CSVFileURI,
-                    companyNameColumnIndex,
-                    firstNameColumnIndex,
-                    lastNameColumnIndex,
-                        function(result) {
-                            if (result.error != null) {
-                                _showErrorPanel(result.error.Message);
-                                return;
-                            }
-                            var resultData = jq.parseJSON(result.value);
-                            jq("#previewImportData tbody tr").remove();
-                            jq.tmpl("previewImportDataTemplate", resultData).appendTo("#previewImportData tbody");
-                            jq("#importFromCSVSteps dd:eq(2) span:eq(1)").text(jq.format(ASC.CRM.Resources.CRMJSResource.ImportFromCSVStepThreeDescription, jq("#previewImportData tbody tr").length));
-                            _nextStep(2);
-                        });
+            //jq("#importFromCSVSteps dd:first .middle-button-container a.button.blue.middle:first").addClass("disable");
         },
 
         getColumnMapping: function() {
@@ -3507,18 +3517,19 @@ ASC.CRM.ImportEntities = (function ($) {
             }
 
             switch (_entityType) {
+                case "0":
                 case 0:  //  Contact
                     {
                         var firstNameOptions = columnMappingSelector.find("option[name=firstName]:selected"),
-                            lastNameOptions = columnMappingSelector.find("option[name=lastName]:selected"),
                             companyNameOptions = columnMappingSelector.find("option[name=companyName]:selected");
 
-                        if ((firstNameOptions.length == 0 || lastNameOptions.length == 0) && companyNameOptions.length == 0) {
+                        if (firstNameOptions.length == 0 && companyNameOptions.length == 0) {
                             _showErrorPanel(ASC.CRM.Resources.CRMJSResource.ErrorContactNotMappingBasicColumn);
                             return;
                         }
                     }
                     break;
+                case "1":
                 case 1:  //  Opportunity
                     {
                         var titleOptions = columnMappingSelector.find("option[name=title]:selected"),
@@ -3530,6 +3541,7 @@ ASC.CRM.ImportEntities = (function ($) {
                         }
                     }
                     break;
+                case "3":
                 case 3:  //  Task
                     {
                         var titleOptions = columnMappingSelector.find("option[name=title]:selected"),
@@ -3544,6 +3556,7 @@ ASC.CRM.ImportEntities = (function ($) {
                         }
                     }
                     break;
+                case "7":
                 case 7:  //  Case
                     var titleOptions = columnMappingSelector.find("option[name=title]:selected");
                     if (titleOptions.length == 0) {
@@ -3559,7 +3572,14 @@ ASC.CRM.ImportEntities = (function ($) {
 
             importSetting["column_mapping"] = columnMapping;
 
-            if (_entityType == 0) {//contact
+            if (_entityType != 3 && _entityType != "3") { //not task
+                importSetting["tags"] = jq.map(jq("#tagContainer .tag_title"),
+                       function (item) {
+                           return jq(item).text().trim();
+                       });
+            }
+
+            if (_entityType == 0 || _entityType == "0") {//contact
                 var contactManagers = new Array(Teamlab.profile.id);
 
                 for (var i = 0, n = window.SelectedUsers_ImportContactsManager.IDs.length; i < n; i++) {
@@ -3567,7 +3587,7 @@ ASC.CRM.ImportEntities = (function ($) {
                 }
                 importSetting["contact_managers"] = contactManagers;
                 importSetting["share_type"] = jq("#isPublic").is(":checked") ? jq(".makePublicPanel select.makePublicPanelSelector").val() : 0;
-            } else if (_entityType != 3) {
+            } else if (_entityType != 3 && _entityType != "3") {
                 var privateUsers = new Array(SelectedUsers.CurrentUserID);
 
                 for (var i = 0, n = SelectedUsers.IDs.length; i < n; i++) {
@@ -3577,32 +3597,67 @@ ASC.CRM.ImportEntities = (function ($) {
                 importSetting["is_private"] = jq("#isPrivate").is(":checked");
             }
 
-            if (_entityType == 0) {
+            if (_entityType == 0 || _entityType == "0") {
                 importSetting.removing_duplicates_behavior = jq("input[name='removingDuplicatesBehavior']:checked").val();
             }
 
-            AjaxPro.onLoading = function(b) {
-                if (b) {
-                    LoadingBanner.strLoading = ASC.CRM.Resources.CRMCommonResource.ImportFromCSVStepTwoProgressLable;
-                    LoadingBanner.showLoaderBtn("#importFromCSVSteps");
-                } else {
-                    LoadingBanner.hideLoaderBtn("#importFromCSVSteps");
-                }
-            };
-
-            AjaxPro.Utils.ImportFromCSV.StartImport(_entityType, _CSVFileURI, jq.toJSON(importSetting),
-                function(result) {
-                    if (result.error != null) {
-                        _showErrorPanel(result.error.Message);
-                        return;
+            Teamlab.startCrmImportFromCSV({},
+                { entityType: _entityTypeName, csvFileURI: _CSVFileURI, jsonSettings: jq.toJSON(importSetting) },
+                {
+                    before: function(params) {
+                        LoadingBanner.strLoading = ASC.CRM.Resources.CRMCommonResource.ImportFromCSVStepTwoProgressLable;
+                        LoadingBanner.showLoaderBtn("#importFromCSVSteps");
+                    },
+                    after: function (params) {
+                        LoadingBanner.hideLoaderBtn("#importFromCSVSteps");
+                    },
+                    success: function (params, response) {
+                        jq("#importFromCSVSteps").hide();
+                        jq("#importStartedFinalMessage").show();
+                        ASC.CRM.ImportEntities.checkImportStatus(true, _entityTypeName);
+                    },
+                    error: function (params, errors) {
+                        var err = errors[0];
+                        if (err != null) {
+                            _showErrorPanel(err);
+                        }
                     }
-                    jq("#importFromCSVSteps").hide();
-                    jq("#importStartedFinalMessage").show();
-                    ASC.CRM.ImportEntities.checkImportStatus(true);
+
                 });
         },
-        startUploadCSVFile: function() {
-            _ajaxUploader.submit();
+
+        startUploadCSVFile: function () {
+            if (_CSVFileURI == "") {
+                _ajaxUploader.submit();
+            } else {
+
+                _settingsBase = _getSettingsBase();
+                _ajaxUploader._settings.data["importSettings"] = jq.toJSON(_settingsBase);
+
+                LoadingBanner.strLoading = ASC.CRM.Resources.CRMCommonResource.ImportFromCSVStepOneProgressLable
+                LoadingBanner.showLoaderBtn("#importFromCSVSteps");
+
+                Teamlab.uploadFakeCrmImportFromCSV({},
+                    { csvFileURI: _CSVFileURI, jsonSettings: jq.toJSON(_settingsBase) },
+                    {
+                        success: function (params, response) {
+                            var result = {
+                                Success: response.success,
+                                Data: response.data,
+                                Message: response.message,
+                            };
+
+                            _ajaxUploaderonCompleteCallback(null, jq.toJSON(result));
+                        },
+                        error: function (params, errors) {
+                            var err = errors[0];
+                            if (err != null) {
+                                toastr.error(err);
+                            }
+                        }
+
+                    });
+            }
         },
         getPrevSampleRow: function() {
             _curIndexSampleRow--;
@@ -3620,9 +3675,7 @@ ASC.CRM.ImportEntities = (function ($) {
             _getSampleRow();
         },
 
-        checkImportStatus: function(isFirstVisit) {
-
-            AjaxPro.onLoading = function(b) { };
+        checkImportStatus: function (isFirstVisit, entityType) {
             if (isFirstVisit) {
                 jq("#importStartedFinalMessage div.progress").css("width", "0%");
                 jq("#importStartedFinalMessage div.percent").text("0%");
@@ -3630,41 +3683,47 @@ ASC.CRM.ImportEntities = (function ($) {
                 jq("#importStartedFinalMessage div.progressErrorBox").html("");
             }
 
-            AjaxPro.Utils.ImportFromCSV.GetStatus(_entityType, function(res) {
-                if (res.error != null) {
-                    _showErrorPanel(res.error.Message);
-                    return false;
-                }
+            Teamlab.getStatusCrmImportFromCSV({},
+               { entityType: entityType },
+               {
+                   max_request_attempts: 1,
+                   success: function (params, response) {
+                       if (response == null || jQuery.isEmptyObject(response)) {
+                           jq("#importStartedFinalMessage div.progress").css("width", "100%");
+                           jq("#importStartedFinalMessage div.percent").text("100%");
+                           jq("#importErrorBox").hide();
+                           jq("#importStartedFinalMessage div.progressErrorBox").html("");
+                           return false;
+                       }
 
-                if (res.value == null) {
-                    jq("#importStartedFinalMessage div.progress").css("width", "100%");
-                    jq("#importStartedFinalMessage div.percent").text("100%");
-                    jq("#importErrorBox").hide();
-                    jq("#importStartedFinalMessage div.progressErrorBox").html("");
-                    return false;
-                }
+                       jq("#importStartedFinalMessage div.progress").css("width", parseInt(response.percentage) + "%");
+                       jq("#importStartedFinalMessage div.percent").text(parseInt(response.percentage) + "%");
 
-                jq("#importStartedFinalMessage div.progress").css("width", parseInt(res.value.Percentage) + "%");
-                jq("#importStartedFinalMessage div.percent").text(parseInt(res.value.Percentage) + "%");
-
-                if (res.value.Error != null && res.value.Error != "") {
-                    ASC.CRM.ImportEntities.buildErrorList(res);
-                } else {
-                    if (!res.value.IsCompleted) {
-                        setTimeout("ASC.CRM.ImportEntities.checkImportStatus(false)", 3000);
-                    }
-                }
-            });
+                       if (response.error != null && response.error != "") {
+                           ASC.CRM.ImportEntities.buildErrorList(response);
+                       } else {
+                           if (!response.isCompleted) {
+                               setTimeout("ASC.CRM.ImportEntities.checkImportStatus(false, '" + entityType + "')", 3000);
+                           }
+                       }
+                   },
+                   error: function (params, errors) {
+                       var err = errors[0];
+                       if (err != null) {
+                           _showErrorPanel(err);
+                       }
+                   }
+               });
         },
 
         buildErrorList: function(res) {
             var mess = "error";
-            switch (typeof res.value.Error) {
+            switch (typeof res.error) {
                 case "object":
-                    mess = res.value.Error.Message + "<br/>";
+                    mess = res.error.Message + "<br/>";
                     break;
                 case "string":
-                    mess = res.value.Error;
+                    mess = res.error;
                     break;
             }
             var link = jq("#importStartedFinalMessage #importLinkBox a").clone().removeClass("button.blue");
@@ -3674,6 +3733,7 @@ ASC.CRM.ImportEntities = (function ($) {
             jq("#importStartedFinalMessage #importErrorBox").show();
             jq("#importStartedFinalMessage #importLinkBox").hide();
         }
+
     };
 })(jQuery);
 

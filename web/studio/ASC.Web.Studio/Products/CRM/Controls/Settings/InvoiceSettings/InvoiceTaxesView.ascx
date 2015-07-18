@@ -6,7 +6,6 @@
 <%@ Import Namespace="ASC.Web.CRM.Resources" %>
 <%@ Assembly Name="ASC.Web.CRM" %>
 <%@ Assembly Name="ASC.Web.Core" %>
-<%@ Import Namespace="ASC.CRM.Core" %>
 
 <div id="invoiceTaxesList"class="clearFix">
     <p style="margin-bottom: 10px;"><%= CRMInvoiceResource.InvoiceTaxesDescriptionText %></p>
@@ -29,7 +28,6 @@
 </div>
 
 <div id="invoiceTaxesActionMenu" class="studio-action-panel">
-    <div class="corner-top right"></div>
     <ul class="dropdown-content">
         <li><a class="dropdown-item editInvoiceTaxLink"><%= CRMInvoiceResource.EditInvoiceTax %></a></li>
         <li><a class="dropdown-item deleteInvoiceTaxLink"><%= CRMCommonResource.Delete %></a></li>

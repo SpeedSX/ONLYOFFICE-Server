@@ -1,41 +1,36 @@
 /*
-(c) Copyright Ascensio System SIA 2010-2014
-
-This program is a free software product.
-You can redistribute it and/or modify it under the terms 
-of the GNU Affero General Public License (AGPL) version 3 as published by the Free Software
-Foundation. In accordance with Section 7(a) of the GNU AGPL its Section 15 shall be amended
-to the effect that Ascensio System SIA expressly excludes the warranty of non-infringement of 
-any third-party rights.
-
-This program is distributed WITHOUT ANY WARRANTY; without even the implied warranty 
-of MERCHANTABILITY or FITNESS FOR A PARTICULAR  PURPOSE. For details, see 
-the GNU AGPL at: http://www.gnu.org/licenses/agpl-3.0.html
-
-You can contact Ascensio System SIA at Lubanas st. 125a-25, Riga, Latvia, EU, LV-1021.
-
-The  interactive user interfaces in modified source and object code versions of the Program must 
-display Appropriate Legal Notices, as required under Section 5 of the GNU AGPL version 3.
- 
-Pursuant to Section 7(b) of the License you must retain the original Product logo when 
-distributing the program. Pursuant to Section 7(e) we decline to grant you any rights under 
-trademark law for use of our trademarks.
- 
-All the Product's GUI elements, including illustrations and icon sets, as well as technical writing
-content are licensed under the terms of the Creative Commons Attribution-ShareAlike 4.0
-International. See the License terms at http://creativecommons.org/licenses/by-sa/4.0/legalcode
+ *
+ * (c) Copyright Ascensio System Limited 2010-2015
+ *
+ * This program is freeware. You can redistribute it and/or modify it under the terms of the GNU 
+ * General Public License (GPL) version 3 as published by the Free Software Foundation (https://www.gnu.org/copyleft/gpl.html). 
+ * In accordance with Section 7(a) of the GNU GPL its Section 15 shall be amended to the effect that 
+ * Ascensio System SIA expressly excludes the warranty of non-infringement of any third-party rights.
+ *
+ * THIS PROGRAM IS DISTRIBUTED WITHOUT ANY WARRANTY; WITHOUT EVEN THE IMPLIED WARRANTY OF MERCHANTABILITY OR
+ * FITNESS FOR A PARTICULAR PURPOSE. For more details, see GNU GPL at https://www.gnu.org/copyleft/gpl.html
+ *
+ * You can contact Ascensio System SIA by email at sales@onlyoffice.com
+ *
+ * The interactive user interfaces in modified source and object code versions of ONLYOFFICE must display 
+ * Appropriate Legal Notices, as required under Section 5 of the GNU GPL version 3.
+ *
+ * Pursuant to Section 7 § 3(b) of the GNU GPL you must retain the original ONLYOFFICE logo which contains 
+ * relevant author attributions when distributing the software. If the display of the logo in its graphic 
+ * form is not reasonably feasible for technical reasons, you must include the words "Powered by ONLYOFFICE" 
+ * in every copy of the program you distribute. 
+ * Pursuant to Section 7 § 3(e) we decline to grant you any rights under trademark law for use of our trademarks.
+ *
 */
 
-/*
-    Copyright (c) Ascensio System SIA 2013. All rights reserved.
-    http://www.teamlab.com
-*/
+
 ;
 window.ASC.Files.Editor = (function () {
     var isInit = false;
 
     var docIsChanged = false;
     var fixedVersion = false;
+    var canShowHistory = false;
 
     var docEditor = null;
     var docServiceParams = null;
@@ -46,7 +41,6 @@ window.ASC.Files.Editor = (function () {
     var tabId = "";
     var serverErrorMessage = null;
     var editByUrl = false;
-    var mustAuth = false;
     var canCreate = true;
     var thirdPartyApp = false;
     var options = null;
@@ -67,10 +61,15 @@ window.ASC.Files.Editor = (function () {
         ASC.Files.ServiceManager.bind(ASC.Files.ServiceManager.events.CanEditFile, completeCanEdit);
         ASC.Files.ServiceManager.bind(ASC.Files.ServiceManager.events.SaveEditing, completeSave);
         ASC.Files.ServiceManager.bind(ASC.Files.ServiceManager.events.StartEdit, onStartEdit);
+        ASC.Files.ServiceManager.bind(ASC.Files.ServiceManager.events.GetEditHistory, completeGetEditHistory);
+        ASC.Files.ServiceManager.bind(ASC.Files.ServiceManager.events.GetDiffUrl, completeGetDiffUrl);
     };
 
     var createFrameEditor = function (serviceParams) {
+
         jq("#iframeEditor").parents().css("height", "100%");
+
+        checkDocVersion();
 
         if (serviceParams) {
             var embedded = (serviceParams.type == "embedded");
@@ -103,9 +102,12 @@ window.ASC.Files.Editor = (function () {
 
             var editorConfig = {
                 mode: serviceParams.mode,
-                canBackToFolder: (serviceParams.folderUrl.length > 0),
                 lang: serviceParams.lang,
-                canAutosave: ASC.Files.Editor.newScheme || !serviceParams.file.provider_key
+                canAutosave: ASC.Files.Editor.newScheme || !serviceParams.file.provider_key,
+                branding: {
+                    logoUrl: ASC.Files.Editor.brandingLogoUrl || "",
+                    customerLogo: ASC.Files.Editor.brandingCustomerLogo || "",
+                },
             };
 
             if (embedded) {
@@ -128,6 +130,10 @@ window.ASC.Files.Editor = (function () {
 
                 if (serviceParams.sharingSettingsUrl) {
                     editorConfig.sharingSettingsUrl = serviceParams.sharingSettingsUrl;
+                }
+
+                if (serviceParams.fileChoiceUrl) {
+                    editorConfig.fileChoiceUrl = serviceParams.fileChoiceUrl;
                 }
 
                 editorConfig.templates =
@@ -158,12 +164,29 @@ window.ASC.Files.Editor = (function () {
 
         var eventsConfig = {
             "onReady": ASC.Files.Editor.readyEditor,
-            "onBack": ASC.Files.Editor.backEditor,
             "onDocumentStateChange": ASC.Files.Editor.documentStateChangeEditor,
             "onRequestEditRights": ASC.Files.Editor.requestEditRightsEditor,
             "onSave": ASC.Files.Editor.saveEditor,
-            "onError": ASC.Files.Editor.errorEditor
+            "onError": ASC.Files.Editor.errorEditor,
+            "onOutdatedVersion": ASC.Files.Editor.outdatedVersion
         };
+
+        if (serviceParams) {
+        if (serviceParams.folderUrl.length > 0) {
+            eventsConfig.onBack = ASC.Files.Editor.backEditor;
+        }
+
+        if (ASC.Files.Editor.newScheme
+            && false
+            && !serviceParams.file.provider_key
+            && !ASC.Files.Editor.editByUrl
+            && !ASC.Files.Editor.thirdPartyApp) {
+
+            ASC.Files.Editor.canShowHistory = true;
+            eventsConfig.onRequestHistory = ASC.Files.Editor.requestHistory;
+            eventsConfig.onRequestHistoryData = ASC.Files.Editor.getDiffUrl;
+        }
+        }
 
         ASC.Files.Editor.docEditor = new DocsAPI.DocEditor("iframeEditor", {
             width: "100%",
@@ -172,7 +195,7 @@ window.ASC.Files.Editor = (function () {
             type: typeConfig || "desktop",
             documentType: documentTypeConfig,
             document: documentConfig,
-            editorConfig: editorConfig || { canBackToFolder: true },
+            editorConfig: editorConfig,
             events: eventsConfig
         });
     };
@@ -183,6 +206,15 @@ window.ASC.Files.Editor = (function () {
             wrapEl.style.height = screen.availHeight + "px";
             window.scrollTo(0, -1);
             wrapEl.style.height = window.innerHeight + "px";
+        }
+    };
+
+    var checkDocVersion = function () {
+        if (!ASC.Files.Editor.newScheme && DocsAPI.DocEditor.version) {
+            var version = DocsAPI.DocEditor.version();
+            if ((parseFloat(version) || 0) >= 3) {
+                ASC.Files.Editor.newScheme = true;
+            }
         }
     };
 
@@ -202,10 +234,14 @@ window.ASC.Files.Editor = (function () {
         }
     };
 
-    var backEditor = function () {
+    var backEditor = function (event) {
         clearTimeout(trackEditTimeout);
         var href = ASC.Files.Editor.docServiceParams ? ASC.Files.Editor.docServiceParams.folderUrl : ASC.Files.Constants.URL_FILES_START;
-        location.href = href;
+        if (event && event.data) {
+            window.open(href, "_blank");
+        } else {
+            location.href = href;
+        }
     };
 
     var documentStateChangeEditor = function (event) {
@@ -242,20 +278,14 @@ window.ASC.Files.Editor = (function () {
 
         var urlSavedDoc = event.data;
 
-        var urlRedirect = ASC.Files.Editor.FileWebEditorExternalUrlString
-            .format(encodeURIComponent(urlSavedDoc), encodeURIComponent(ASC.Files.Editor.docServiceParams.file.title));
-        urlRedirect += "&openfolder=true";
-
-        if (ASC.Files.Editor.mustAuth) {
-            jq("#additionalMember").val(urlRedirect);
-            jq(".block-auth").show();
+        if (ASC.Files.Editor.editByUrl) {
 
             ASC.Files.Editor.docEditor.processSaveResult(true);
-            return true;
-        } else if (ASC.Files.Editor.editByUrl) {
 
-            ASC.Files.Editor.docEditor.processSaveResult(true);
-            location.href = urlRedirect;
+            var urlRedirect = ASC.Files.Editor.FileWebEditorExternalUrlString
+                .format(encodeURIComponent(urlSavedDoc), encodeURIComponent(ASC.Files.Editor.docServiceParams.file.title));
+
+            location.href = urlRedirect + "&openfolder=true";
             return false;
 
         } else {
@@ -275,7 +305,7 @@ window.ASC.Files.Editor = (function () {
     };
 
     var requestEditRightsEditor = function () {
-        if (ASC.Files.Editor.docServiceParams.linkToEdit) {
+        if (ASC.Files.Editor.editByUrl || ASC.Files.Editor.newScheme) {
             location.href = ASC.Files.Editor.docServiceParams.linkToEdit + ASC.Files.Editor.shareLinkParam;
         } else {
             ASC.Files.ServiceManager.canEditFile(ASC.Files.ServiceManager.events.CanEditFile,
@@ -284,6 +314,35 @@ window.ASC.Files.Editor = (function () {
                     shareLinkParam: ASC.Files.Editor.shareLinkParam
                 });
         }
+    };
+
+    var requestHistory = function () {
+        if (!ASC.Files.Editor.canShowHistory) {
+            return;
+        }
+
+        ASC.Files.ServiceManager.getEditHistory(ASC.Files.ServiceManager.events.GetEditHistory,
+            {
+                fileID: ASC.Files.Editor.docServiceParams.file.id,
+                shareLinkParam: ASC.Files.Editor.shareLinkParam
+            });
+    };
+
+    var getDiffUrl = function (version) {
+        if (!ASC.Files.Editor.canShowHistory) {
+            return;
+        }
+
+        ASC.Files.ServiceManager.getDiffUrl(ASC.Files.ServiceManager.events.GetDiffUrl,
+            {
+                fileID: ASC.Files.Editor.docServiceParams.file.id,
+                version: version | 0,
+                shareLinkParam: ASC.Files.Editor.shareLinkParam
+            });
+    };
+
+    var outdatedVersion = function () {
+        location.reload(true);
     };
 
     var trackEdit = function () {
@@ -393,7 +452,7 @@ window.ASC.Files.Editor = (function () {
     };
 
     var getRecentList = function () {
-        if (!ASC.Files.Common.localStorageManager.isAvailable) {
+        if (!localStorageManager.isAvailable) {
             return null;
         }
         var localStorageKey = ASC.Files.Constants.storageKeyRecent;
@@ -403,7 +462,7 @@ window.ASC.Files.Editor = (function () {
         var result = new Array();
 
         try {
-            var recordsFromStorage = ASC.Files.Common.localStorageManager.getItem(localStorageKey);
+            var recordsFromStorage = localStorageManager.getItem(localStorageKey);
             if (!recordsFromStorage) {
                 recordsFromStorage = new Array();
             }
@@ -427,7 +486,7 @@ window.ASC.Files.Editor = (function () {
             if (!containRecord) {
                 recordsFromStorage.unshift(currentRecord);
 
-                ASC.Files.Common.localStorageManager.setItem(localStorageKey, recordsFromStorage);
+                localStorageManager.setItem(localStorageKey, recordsFromStorage);
             }
 
             result = jq(recordsFromStorage).filter(function () {
@@ -451,6 +510,51 @@ window.ASC.Files.Editor = (function () {
         }
     };
 
+    var completeGetEditHistory = function (jsonData, params, errorMessage) {
+        if (typeof ASC.Files.Editor.docEditor.refreshHistory != "function") {
+            if (typeof errorMessage != "undefined") {
+                docEditorShowError(errorMessage || "Connection is lost");
+                return;
+            }
+        } else {
+            if (typeof errorMessage != "undefined") {
+                var data = {
+                    error: errorMessage || "Connection is lost"
+                };
+            } else {
+                data = {
+                    currentVersion: ASC.Files.Editor.docServiceParams.file.version,
+                    history: jsonData
+                };
+            }
+
+            ASC.Files.Editor.docEditor.refreshHistory(data);
+        }
+    };
+
+    var completeGetDiffUrl = function (jsonData, params, errorMessage) {
+        if (typeof ASC.Files.Editor.docEditor.setHistoryData != "function") {
+            if (typeof errorMessage != "undefined") {
+                docEditorShowError(errorMessage || "Connection is lost");
+                return;
+            }
+        } else {
+            if (typeof errorMessage != "undefined") {
+                var data = {
+                    error: errorMessage || "Connection is lost"
+                };
+            } else {
+                data = {
+                    version: params.version,
+                    url: jsonData.key,
+                    urlDiff: jsonData.value
+                };
+            }
+
+            ASC.Files.Editor.docEditor.setHistoryData(data);
+        }
+    };
+
     return {
         init: init,
         createFrameEditor: createFrameEditor,
@@ -465,7 +569,6 @@ window.ASC.Files.Editor = (function () {
         tabId: tabId,
         serverErrorMessage: serverErrorMessage,
         editByUrl: editByUrl,
-        mustAuth: mustAuth,
         canCreate: canCreate,
         options: options,
         thirdPartyApp: thirdPartyApp,
@@ -482,8 +585,12 @@ window.ASC.Files.Editor = (function () {
         requestEditRightsEditor: requestEditRightsEditor,
         errorEditor: errorEditor,
         saveEditor: saveEditor,
+        outdatedVersion: outdatedVersion,
+        requestHistory: requestHistory,
+        getDiffUrl: getDiffUrl,
 
-        fixedVersion: fixedVersion
+        fixedVersion: fixedVersion,
+        canShowHistory: canShowHistory,
     };
 })();
 
@@ -499,8 +606,12 @@ window.ASC.Files.Editor = (function () {
 
         var fixPageCaching = function (delta) {
             if (location.hash.indexOf("reload") == -1) {
+                var openingDateParse = Date.parse(ASC.Files.Editor.openinigDate);
+                if (!openingDateParse) {
+                    return;
+                }
                 var openinigDate = new Date();
-                openinigDate.setTime(Date.parse(ASC.Files.Editor.openinigDate));
+                openinigDate.setTime(openingDateParse);
 
                 var currentTime = new Date();
                 var currentUTCTime = new Date(currentTime.getUTCFullYear(), currentTime.getUTCMonth(), currentTime.getUTCDate(), currentTime.getUTCHours(), currentTime.getUTCMinutes());
@@ -514,31 +625,17 @@ window.ASC.Files.Editor = (function () {
         };
         fixPageCaching(10 * 60 * 1000);
 
+        var $icon = jq("#docsEditorFavicon");
+        if ($icon.attr('href').indexOf('logo_favicon_general.ico') !== -1) {//not default
+             $icon.attr('href', $icon.attr('href'));
+        }
+
         ASC.Files.Editor.createFrameEditor(ASC.Files.Editor.docServiceParams);
 
         if (jq("body").hasClass("mobile") || ASC.Files.Editor.docServiceParams && ASC.Files.Editor.docServiceParams.type === "mobile") {
             window.addEventListener("load", ASC.Files.Editor.fixSize);
             window.addEventListener("orientationchange", ASC.Files.Editor.fixSize);
         }
-
-        jq(".block-auth .close").on("click", function () {
-            jq(".block-auth").hide();
-            jq("#wrap iframe").focus();
-        });
-
-        jq(document).bind("keyup", ".block-auth", function (event) {
-            if (!e) {
-                var e = event;
-            }
-
-            e = ASC.Files.Common.fixEvent(e);
-
-            var code = e.keyCode || e.which;
-
-            if (code == ASC.Files.Common.keyCode.esc) {
-                jq(".block-auth .close").click();
-            }
-        });
     });
 })(jQuery);
 

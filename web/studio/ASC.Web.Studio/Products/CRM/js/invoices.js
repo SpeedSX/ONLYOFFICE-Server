@@ -1,35 +1,29 @@
 /*
-(c) Copyright Ascensio System SIA 2010-2014
-
-This program is a free software product.
-You can redistribute it and/or modify it under the terms 
-of the GNU Affero General Public License (AGPL) version 3 as published by the Free Software
-Foundation. In accordance with Section 7(a) of the GNU AGPL its Section 15 shall be amended
-to the effect that Ascensio System SIA expressly excludes the warranty of non-infringement of 
-any third-party rights.
-
-This program is distributed WITHOUT ANY WARRANTY; without even the implied warranty 
-of MERCHANTABILITY or FITNESS FOR A PARTICULAR  PURPOSE. For details, see 
-the GNU AGPL at: http://www.gnu.org/licenses/agpl-3.0.html
-
-You can contact Ascensio System SIA at Lubanas st. 125a-25, Riga, Latvia, EU, LV-1021.
-
-The  interactive user interfaces in modified source and object code versions of the Program must 
-display Appropriate Legal Notices, as required under Section 5 of the GNU AGPL version 3.
- 
-Pursuant to Section 7(b) of the License you must retain the original Product logo when 
-distributing the program. Pursuant to Section 7(e) we decline to grant you any rights under 
-trademark law for use of our trademarks.
- 
-All the Product's GUI elements, including illustrations and icon sets, as well as technical writing
-content are licensed under the terms of the Creative Commons Attribution-ShareAlike 4.0
-International. See the License terms at http://creativecommons.org/licenses/by-sa/4.0/legalcode
+ *
+ * (c) Copyright Ascensio System Limited 2010-2015
+ *
+ * This program is freeware. You can redistribute it and/or modify it under the terms of the GNU 
+ * General Public License (GPL) version 3 as published by the Free Software Foundation (https://www.gnu.org/copyleft/gpl.html). 
+ * In accordance with Section 7(a) of the GNU GPL its Section 15 shall be amended to the effect that 
+ * Ascensio System SIA expressly excludes the warranty of non-infringement of any third-party rights.
+ *
+ * THIS PROGRAM IS DISTRIBUTED WITHOUT ANY WARRANTY; WITHOUT EVEN THE IMPLIED WARRANTY OF MERCHANTABILITY OR
+ * FITNESS FOR A PARTICULAR PURPOSE. For more details, see GNU GPL at https://www.gnu.org/copyleft/gpl.html
+ *
+ * You can contact Ascensio System SIA by email at sales@onlyoffice.com
+ *
+ * The interactive user interfaces in modified source and object code versions of ONLYOFFICE must display 
+ * Appropriate Legal Notices, as required under Section 5 of the GNU GPL version 3.
+ *
+ * Pursuant to Section 7 § 3(b) of the GNU GPL you must retain the original ONLYOFFICE logo which contains 
+ * relevant author attributions when distributing the software. If the display of the logo in its graphic 
+ * form is not reasonably feasible for technical reasons, you must include the words "Powered by ONLYOFFICE" 
+ * in every copy of the program you distribute. 
+ * Pursuant to Section 7 § 3(e) we decline to grant you any rights under trademark law for use of our trademarks.
+ *
 */
 
-/*
-    Copyright (c) Ascensio System SIA 2013. All rights reserved.
-    http://www.teamlab.com
-*/
+
 if (typeof ASC === "undefined") {
     ASC = {};
 }
@@ -108,7 +102,7 @@ ASC.CRM.ListInvoiceView = (function () {
 
     function _onGetException(params, errors) {
         console.log('invoices.js ', errors);
-        LoadingBanner.hideLoading();
+        ASC.CRM.ListInvoiceView.isFirstLoad ? hideFirstLoader() : LoadingBanner.hideLoading();
     };
 
     var _setCookie = function(page, countOnPage) {
@@ -188,7 +182,11 @@ ASC.CRM.ListInvoiceView = (function () {
     var _renderContent = function(startIndex) {
         ASC.CRM.ListInvoiceView.invoiceList = new Array();
 
-        LoadingBanner.displayLoading();
+        if (!ASC.CRM.ListCasesView.isFirstLoad) {
+            LoadingBanner.displayLoading();
+            jq("#invoiceFilterContainer, #invoiceList").show();
+            jq('#invoiceAdvansedFilter').advansedFilter("resize");
+        }
         jq("#mainSelectAllInvoices").prop("checked", false);
 
         _getInvoices(startIndex);
@@ -277,6 +275,13 @@ ASC.CRM.ListInvoiceView = (function () {
         if (invoiceItem == null) return;
 
         jq("#invoiceActionMenu .showProfileLink").attr("href", jq.format("invoices.aspx?id={0}", invoiceID));
+
+        jq("#invoiceActionMenu .showProfileLinkNewTab").unbind("click").bind("click", function () {
+            jq("#invoiceActionMenu").hide();
+            jq("#invoiceTable .entity-menu.active").removeClass("active");
+            window.open(jq.format("invoices.aspx?id={0}", invoiceID), "_blank");
+        });
+
         jq("#invoiceActionMenu .downloadLink").unbind("click").bind("click", function () { _downloadInvoice(invoiceItem); });
         jq("#invoiceActionMenu .printLink").unbind("click").bind("click", function () { _printInvoice(invoiceID); });
         jq("#invoiceActionMenu .sendLink").unbind("click").bind("click", function () { _sendInvoice(invoiceItem); });
@@ -325,7 +330,7 @@ ASC.CRM.ListInvoiceView = (function () {
                 _changeStatus(invoiceItem.id, status);
             });
             var $li = jq("<li></li>").addClass("status-btn").append(a);
-            $li.insertAfter(jq("#invoiceActionMenu ul.dropdown-content .showProfileLink").parents("li:first"));
+            $li.insertAfter(jq("#invoiceActionMenu ul.dropdown-content .showProfileLinkNewTab").parents("li:first"));
         }
     };
 
@@ -404,7 +409,7 @@ ASC.CRM.ListInvoiceView = (function () {
 
         if (ASC.CRM.ListInvoiceView.noInvoices) {
             _renderNoInvoicesEmptyScreen();
-            LoadingBanner.hideLoading();
+            ASC.CRM.ListInvoiceView.isFirstLoad ? hideFirstLoader() : LoadingBanner.hideLoading();
             return false;
         }
 
@@ -413,7 +418,7 @@ ASC.CRM.ListInvoiceView = (function () {
 
             jq("#invoiceFilterContainer").show();
             _resizeFilter();
-            LoadingBanner.hideLoading();
+            ASC.CRM.ListInvoiceView.isFirstLoad ? hideFirstLoader() : LoadingBanner.hideLoading();
             return false;
         }
 
@@ -464,6 +469,16 @@ ASC.CRM.ListInvoiceView = (function () {
 
         window.scrollTo(0, 0);
         ScrolledGroupMenu.fixContentHeaderWidth(jq('#invoiceHeaderMenu'));
+        ASC.CRM.ListInvoiceView.isFirstLoad ? hideFirstLoader() : LoadingBanner.hideLoading();
+    };
+
+    var hideFirstLoader = function () {
+        ASC.CRM.ListInvoiceView.isFirstLoad = false;
+        jq(".containerBodyBlock").children(".loader-page").hide();
+        if (!jq("#invoiceEmptyScreen").is(":visible") && !jq("#emptyContentForInvoiceFilter").is(":visible")) {
+            jq("#invoiceFilterContainer, #invoiceList").show();
+            jq('#invoiceAdvansedFilter').advansedFilter("resize");
+        }
         LoadingBanner.hideLoading();
     };
 
@@ -478,7 +493,7 @@ ASC.CRM.ListInvoiceView = (function () {
 
         if (ASC.CRM.ListInvoiceView.noInvoices) {
             _renderNoInvoicesEmptyScreen();
-            LoadingBanner.hideLoading();
+            ASC.CRM.ListInvoiceView.isFirstLoad ? hideFirstLoader() : LoadingBanner.hideLoading();
             return false;
         }
 
@@ -628,7 +643,7 @@ ASC.CRM.ListInvoiceView = (function () {
         }
         if (warning) {
             if (jq("#changeInvoiceStatusError").length == 0) {
-                jq.tmpl("blockUIPanelTemplate", {
+                jq.tmpl("template-blockUIPanel", {
                     id: "changeInvoiceStatusError",
                     headerTest: ASC.CRM.Resources.CRMInvoiceResource.Warning,
                     questionText: "",
@@ -673,7 +688,7 @@ ASC.CRM.ListInvoiceView = (function () {
         jq.dropdownToggle({
             dropdownID: "invoiceActionMenu",
             switcherSelector: "#invoiceTable .entity-menu",
-            addTop: -2,
+            addTop: 0,
             addLeft: 2,
             rightPos: true,
             beforeShowFunction: function (switcherObj, dropdownItem) {
@@ -706,9 +721,7 @@ ASC.CRM.ListInvoiceView = (function () {
             jq("#invoiceTable .entity-menu.active").removeClass("active");
 
             var $dropdownItem = jq("#invoiceActionMenu");
-            $dropdownItem.show();
-            var left = $dropdownItem.children(".corner-top").position().left;
-            $dropdownItem.hide();
+
             if (target.is(".entity-menu")) {
                 if ($dropdownItem.is(":hidden")) {
                     target.addClass('active');
@@ -721,7 +734,7 @@ ASC.CRM.ListInvoiceView = (function () {
             } else {
                 $dropdownItem.css({
                     "top": e.pageY + 3,
-                    "left": e.pageX - left - 5,
+                    "left": e.pageX -  5,
                     "right": "auto"
                 });
             }
@@ -742,7 +755,7 @@ ASC.CRM.ListInvoiceView = (function () {
     };
 
     var _initConfirmationPannels = function() {
-        jq.tmpl("blockUIPanelTemplate", {
+        jq.tmpl("template-blockUIPanel", {
             id: "deleteInvoicesPanel",
             headerTest: ASC.CRM.Resources.CRMCommonResource.Confirmation,
             questionText: ASC.CRM.Resources.CRMCommonResource.ConfirmationDeleteText,
@@ -885,7 +898,7 @@ ASC.CRM.ListInvoiceView = (function () {
             {
                 success: function (params, data) {
                     var styles = jq.tmpl("invoiceDetailsStylesTmpl", {})[0].outerHTML;
-                    var script = "<script type='text/javascript'>window.onload = function () {this.print();this.close();};</script>";
+                    var script = "<script type='text/javascript'>window.onload = function () {this.print();};</script>";
                     var html = jq.tmpl("invoiceDetailsTmpl", data)[0].outerHTML;
                     doc.write(["<html>", "<head>", styles, "</head>", "<body>", html, script, "</body>", "</html>"].join(""));
                     doc.close();
@@ -957,6 +970,7 @@ ASC.CRM.ListInvoiceView = (function () {
             yesterday = new Date(new Date(today).setDate(tmpDate.getDate() - 1)),
             tomorrow = new Date(new Date(today).setDate(tmpDate.getDate() + 1)),
             beginningOfThisMonth = new Date(new Date(today).setDate(1)),
+            endOfThisMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0),
 
             endOfLastMonth = new Date(new Date(beginningOfThisMonth).setDate(beginningOfThisMonth.getDate() - 1)),
             beginningOfLastMonth = new Date(new Date(endOfLastMonth).setDate(1)),
@@ -965,6 +979,7 @@ ASC.CRM.ListInvoiceView = (function () {
             yesterdayString = Teamlab.serializeTimestamp(yesterday),
             tomorrowString = Teamlab.serializeTimestamp(tomorrow);
             beginningOfThisMonthString = Teamlab.serializeTimestamp(beginningOfThisMonth),
+            endOfThisMonthString = Teamlab.serializeTimestamp(endOfThisMonth),
             beginningOfLastMonthString = Teamlab.serializeTimestamp(beginningOfLastMonth),
             endOfLastMonthString = Teamlab.serializeTimestamp(endOfLastMonth),
 
@@ -982,7 +997,7 @@ ASC.CRM.ListInvoiceView = (function () {
                         { value: jq.toJSON([beginningOfLastMonthString, endOfLastMonthString]), classname: '', title: ASC.CRM.Resources.CRMCommonResource.LastMonth, def: true },
                         { value: jq.toJSON([yesterdayString, yesterdayString]), classname: '', title: ASC.CRM.Resources.CRMCommonResource.Yesterday },
                         { value: jq.toJSON([todayString, todayString]), classname: '', title: ASC.CRM.Resources.CRMCommonResource.Today },
-                        { value: jq.toJSON([beginningOfThisMonthString, todayString]), classname: '', title: ASC.CRM.Resources.CRMCommonResource.ThisMonth }
+                        { value: jq.toJSON([beginningOfThisMonthString, endOfThisMonthString]), classname: '', title: ASC.CRM.Resources.CRMCommonResource.ThisMonth }
                         ]
         },
         {
@@ -998,7 +1013,7 @@ ASC.CRM.ListInvoiceView = (function () {
                     { value: jq.toJSON([beginningOfLastMonthString, endOfLastMonthString]), classname: '', title: ASC.CRM.Resources.CRMCommonResource.LastMonth },
                     { value: jq.toJSON([yesterdayString, yesterdayString]), classname: '', title: ASC.CRM.Resources.CRMCommonResource.Yesterday, def: true },
                     { value: jq.toJSON([todayString, todayString]), classname: '', title: ASC.CRM.Resources.CRMCommonResource.Today },
-                    { value: jq.toJSON([beginningOfThisMonthString, todayString]), classname: '', title: ASC.CRM.Resources.CRMCommonResource.ThisMonth }
+                    { value: jq.toJSON([beginningOfThisMonthString, endOfThisMonthString]), classname: '', title: ASC.CRM.Resources.CRMCommonResource.ThisMonth }
                     ]
         },
         {
@@ -1014,7 +1029,7 @@ ASC.CRM.ListInvoiceView = (function () {
                     { value: jq.toJSON([beginningOfLastMonthString, endOfLastMonthString]), classname: '', title: ASC.CRM.Resources.CRMCommonResource.LastMonth },
                     { value: jq.toJSON([yesterdayString, yesterdayString]), classname: '', title: ASC.CRM.Resources.CRMCommonResource.Yesterday },
                     { value: jq.toJSON([todayString, todayString]), classname: '', title: ASC.CRM.Resources.CRMCommonResource.Today, def: true },
-                    { value: jq.toJSON([beginningOfThisMonthString, todayString]), classname: '', title: ASC.CRM.Resources.CRMCommonResource.ThisMonth }
+                    { value: jq.toJSON([beginningOfThisMonthString, endOfThisMonthString]), classname: '', title: ASC.CRM.Resources.CRMCommonResource.ThisMonth }
                     ]
         },
         {
@@ -1030,7 +1045,7 @@ ASC.CRM.ListInvoiceView = (function () {
                     { value: jq.toJSON([beginningOfLastMonthString, endOfLastMonthString]), classname: '', title: ASC.CRM.Resources.CRMCommonResource.LastMonth },
                     { value: jq.toJSON([yesterdayString, yesterdayString]), classname: '', title: ASC.CRM.Resources.CRMCommonResource.Yesterday },
                     { value: jq.toJSON([todayString, todayString]), classname: '', title: ASC.CRM.Resources.CRMCommonResource.Today },
-                    { value: jq.toJSON([beginningOfThisMonthString, todayString]), classname: '', title: ASC.CRM.Resources.CRMCommonResource.ThisMonth, def: true }
+                    { value: jq.toJSON([beginningOfThisMonthString, endOfThisMonthString]), classname: '', title: ASC.CRM.Resources.CRMCommonResource.ThisMonth, def: true }
                     ]
         },
         {
@@ -1205,7 +1220,7 @@ ASC.CRM.ListInvoiceView = (function () {
             ASC.CRM.Resources.CRMInvoiceResource.CreateFirstInvoice,
             "</a>"].join('');
 
-        jq.tmpl("emptyScrTmpl",
+        jq.tmpl("template-emptyScreen",
             {
                 ID: "invoiceEmptyScreen",
                 ImgSrc: emptyListImgSrc,
@@ -1215,7 +1230,7 @@ ASC.CRM.ListInvoiceView = (function () {
             }).insertAfter("#invoiceList");
 
         //init emptyScreen for filter
-        jq.tmpl("emptyScrTmpl",
+        jq.tmpl("template-emptyScreen",
             {
                 ID: "emptyContentForInvoiceFilter",
                 ImgSrc: emptyFilterListImgSrc,
@@ -1232,7 +1247,9 @@ ASC.CRM.ListInvoiceView = (function () {
         invoiceList     : new Array(),
         selectedItems   : new Array(),
 
-        isFilterVisible : false,
+        isFilterVisible: false,
+
+        isFirstLoad: true,
 
         entryCountOnPage         : 0,
         defaultCurrentPageNumber : 0,
@@ -1314,7 +1331,8 @@ ASC.CRM.ListInvoiceView = (function () {
                 noresults: ASC.CRM.Resources.CRMCommonResource.NoMatches,
                 noitems: ASC.CRM.Resources.CRMCommonResource.NoMatches,
                 inPopup: true,
-                onechosen: true
+                onechosen: true,
+                isTempLoad: true
             });
 
             jq(window).bind("afterResetSelectedContact", function (event, obj, objName) {
@@ -1323,6 +1341,8 @@ ASC.CRM.ListInvoiceView = (function () {
                 }
             });
 
+            ASC.CRM.ListInvoiceView.isFirstLoad = true;
+            jq(".containerBodyBlock").children(".loader-page").show();
 
             _initFilter();
 
@@ -1444,7 +1464,7 @@ ASC.CRM.ListInvoiceView = (function () {
         },
 
         initConfirmationPanelForDelete: function () {
-            jq.tmpl("blockUIPanelTemplate", {
+            jq.tmpl("template-blockUIPanel", {
                 id: "confirmationDeleteOneInvoicePanel",
                 headerTest: ASC.CRM.Resources.CRMCommonResource.Confirmation,
                 questionText: "",
@@ -1697,20 +1717,18 @@ ASC.CRM.InvoiceActionView = (function () {
             changeLine(this);
         });
 
-        jq("#invoiceLineTableContainer").on("keypress", ".quantity input, .discount input", function (event) {
-            pressNumber(this, event, true);
+        jq.forceNumber({
+            parent: "#invoiceLineTableContainer",
+            input: ".quantity input, .discount input",
+            integerOnly: true,
+            positiveOnly: true
         });
 
-        jq("#invoiceLineTableContainer").on("paste", ".quantity input, .discount input", function () {
-            pasteNumber(this, true);
-        });
-
-        jq("#invoiceLineTableContainer").on("keypress", ".price input", function (event) {
-            pressNumber(this, event, false);
-        });
-
-        jq("#invoiceLineTableContainer").on("paste", ".price input", function () {
-            pasteNumber(this, false);
+        jq.forceNumber({
+            parent: "#invoiceLineTableContainer",
+            input: ".price input",
+            integerOnly: false,
+            positiveOnly: true
         });
 
         jq("#invoiceLineTableContainer").on("click", ".add-line", function () {
@@ -1750,12 +1768,11 @@ ASC.CRM.InvoiceActionView = (function () {
             jq(this).helper({ BlockHelperID: 'currencyHelpInfo' });
         });
 
-        jq("#invoiceExchangeRate").on("keypress", function (event) {
-            pressNumber(this, event, false);
-        });
-
-        jq("#invoiceExchangeRate").on("paste", function () {
-            pasteNumber(this, false);
+        jq.forceNumber({
+            parent: "#exchangeRateContainer",
+            input: "#invoiceExchangeRate",
+            integerOnly: false,
+            positiveOnly: true
         });
 
         jq("#invoiceExchangeRate").on("change", function () {
@@ -1788,6 +1805,10 @@ ASC.CRM.InvoiceActionView = (function () {
             findItems(this);
         });
 
+        jq("#crm_invoiceMakerDialog #selectItemDialog").on("click", ".custom-input .serch", function () {
+            findItems(jq("#selectItemDialog .custom-input input"));
+        });
+
         jq("#crm_invoiceMakerDialog .selector").on("click", ".custom-list a", function () {
             selectItem(this);
         });
@@ -1804,12 +1825,11 @@ ASC.CRM.InvoiceActionView = (function () {
             changeNumberFormat();
         });
 
-        jq("#numberFormatDialog #numberInpt").on("keypress", function (event) {
-            pressNumber(this, event, true);
-        });
-
-        jq("#numberFormatDialog #numberInpt").on("paste", function () {
-            pasteNumber(this, true);
+        jq.forceNumber({
+            parent: "#numberFormatDialog",
+            input: "#numberInpt",
+            integerOnly: true,
+            positiveOnly: true
         });
 
         jq("#crm_invoiceMakerDialog .duedate-link").on("click", function () {
@@ -1832,24 +1852,22 @@ ASC.CRM.InvoiceActionView = (function () {
             saveDefaultTerms();
         });
 
-        jq("#selectItemDialog #newItemPrice").on("keypress", function (event) {
-            pressNumber(this, event, false);
-        });
-
-        jq("#selectItemDialog #newItemPrice").on("paste", function () {
-            pasteNumber(this, false);
+        jq.forceNumber({
+            parent: "#selectItemDialog",
+            input: "#newItemPrice",
+            integerOnly: false,
+            positiveOnly: true
         });
 
         jq("#selectItemDialog ").on("keyup change", "#newItemName, #newItemPrice", function () {
             checkCreateBtnEnable(this);
         });
 
-        jq("#selectTaxDialog #newTaxRate").on("keypress", function (event) {
-            pressNumber(this, event, true);
-        });
-
-        jq("#selectTaxDialog #newTaxRate").on("paste", function () {
-            pasteNumber(this, true);
+        jq.forceNumber({
+            parent: "#selectTaxDialog",
+            input: "#newTaxRate",
+            integerOnly: true,
+            positiveOnly: false
         });
 
         jq("#selectTaxDialog ").on("keyup change", "#newTaxName, #newTaxRate", function () {
@@ -2013,7 +2031,7 @@ ASC.CRM.InvoiceActionView = (function () {
     };
 
     var initDeleteDialog = function () {
-        jq.tmpl("blockUIPanelTemplate", {
+        jq.tmpl("template-blockUIPanel", {
             id: "deleteDialog",
             headerTest: ASC.CRM.Resources.CRMCommonResource.Confirmation,
             questionText: "",
@@ -2025,7 +2043,7 @@ ASC.CRM.InvoiceActionView = (function () {
     };
 
     var initNumberFormatDialog = function () {
-        jq.tmpl("blockUIPanelTemplate", {
+        jq.tmpl("template-blockUIPanel", {
             id: "numberFormatDialog",
             headerTest: ASC.CRM.Resources.CRMInvoiceResource.ChangeFormat,
             questionText: "",
@@ -2037,7 +2055,7 @@ ASC.CRM.InvoiceActionView = (function () {
     };
 
     var initDefaultTermsDialog = function () {
-        jq.tmpl("blockUIPanelTemplate", {
+        jq.tmpl("template-blockUIPanel", {
             id: "defaultTermsDialog",
             headerTest: ASC.CRM.Resources.CRMInvoiceResource.SetDefaultTerms,
             questionText: "",
@@ -2149,7 +2167,7 @@ ASC.CRM.InvoiceActionView = (function () {
                 window.invoiceContactInfo = data;
 
                 var addresses = getInvoiceContactInfoList(7, 3),
-                    address = getAddressByIDOrDefault(0, addresses)
+                    address = getAddressByIdOrDefault(0, addresses);
                 jq("#addressDialog").find("[name='billingAddressID']").val(address != null ? address.id : 0);
 
                 showInvoiceContactInfoContainer();
@@ -2199,7 +2217,7 @@ ASC.CRM.InvoiceActionView = (function () {
                 window.invoiceConsigneeInfo = data;
 
                 var addresses = getInvoiceContsigneeInfoList(7, 1),
-                    address = getAddressByIDOrDefault(0, addresses)
+                    address = getAddressByIdOrDefault(0, addresses);
                 jq("#addressDialog").find("[name='deliveryAddressID']").val(address != null ? address.id : 0);
 
                 showInvoiceConsigneeInfoContainer();
@@ -2231,6 +2249,65 @@ ASC.CRM.InvoiceActionView = (function () {
         }
     };
 
+    var preInitAddressDialog = function () {
+        var html = ["<option value='' style='display:none;'></option>",
+                "<option value='",
+                ASC.CRM.Resources.CRMJSResource.ChooseCountry,
+                "' class='default-option'>",
+                jq.htmlEncodeLight(ASC.CRM.Resources.CRMJSResource.ChooseCountry),
+                "</option>"]
+            .join('');
+
+        html += ["<option class='option-first-in-group-separated' value='",
+                window.currentCultureName,
+                "'>",
+                jq.htmlEncodeLight(window.currentCultureName),
+                "</option>"].join('');
+
+        for (var i = 0, n = window.countryListExt.length; i < n; i++) {
+            var elt = window.countryListExt[i];
+            if (window.currentCultureName != elt) {
+                html += ["<option value='",
+                    elt,
+                    "'",
+                    i == 0 ? " class='option-first-in-group-separated'" : "",
+                    ">",
+                    jq.htmlEncodeLight(elt),
+                    "</option>"
+                ].join('');
+            }
+        }
+        jq("#invoiceContactCountry").html(html).val(ASC.CRM.Resources.CRMJSResource.ChooseCountry);
+
+        jq("#addressDialog").find("[name='deliveryAddressID']").val(0);
+        jq("#addressDialog").find("[name='billingAddressID']").val(0);
+        if (typeof (window.invoiceJsonData) != "undefined" && window.invoiceJsonData != "") {
+            try {
+                window.invoiceJsonData = window.invoiceJsonData ? jq.parseJSON(jq.base64.decode(window.invoiceJsonData)) : null;
+                if (window.invoiceJsonData != null) {
+                    if (!window.invoiceJsonData.hasOwnProperty("DeliveryAddressID") || isNaN(window.invoiceJsonData.DeliveryAddressID)) {
+                        window.invoiceJsonData.DeliveryAddressID = 0;
+                    }
+
+                    var addresses = getInvoiceContsigneeInfoList(7, 1),
+                        address = getAddressByIdOrDefault(window.invoiceJsonData.DeliveryAddressID, addresses);
+                    jq("#addressDialog").find("[name='deliveryAddressID']").val(address != null ? address.id : 0);
+
+                    if (!window.invoiceJsonData.hasOwnProperty("BillingAddressID") || isNaN(window.invoiceJsonData.BillingAddressID)) {
+                        window.invoiceJsonData.BillingAddressID = 0;
+                    }
+
+                    addresses = getInvoiceContactInfoList(7, 3);
+                    address = getAddressByIdOrDefault(window.invoiceJsonData.BillingAddressID, addresses);
+                    jq("#addressDialog").find("[name='billingAddressID']").val(address != null ? address.id : 0);
+                }
+            } catch (e) {
+                console.log(e);
+                window.invoiceJsonData = null;
+            }
+        } else { window.invoiceJsonData = null; }
+    };
+
     var showAddressDialog = function (swithcer) {
         var isConsignee = swithcer.parents("#invoiceConsigneeInfoContainer").length > 0;
         var contactId = isConsignee ? jq("#invoiceConsigneeID").val() : jq("#invoiceContactID").val();
@@ -2248,18 +2325,18 @@ ASC.CRM.InvoiceActionView = (function () {
         var addresses = isConsignee ? getInvoiceContsigneeInfoList(7, category) : getInvoiceContactInfoList(7, category),
             $dialog = jq("#addressDialog"),
             $select = $dialog.find("select.address_type_select"),
-            cur_address_id = isBilling ?
+            curAddressId = isBilling ?
                             parseInt($dialog.find("[name='billingAddressID']").val()) :
                             parseInt($dialog.find("[name='deliveryAddressID']").val()),
-            address = getAddressByIDOrDefault(cur_address_id, addresses);
+            address = getAddressByIdOrDefault(curAddressId, addresses);
 
         $dialog.find(".address_category").val(category);
 
-        cur_address_id = address != null ? address.id : cur_address_id;
+        curAddressId = address != null ? address.id : curAddressId;
         if (isBilling) {
-            $dialog.find("[name='billingAddressID']").val(cur_address_id);
+            $dialog.find("[name='billingAddressID']").val(curAddressId);
         } else {
-            $dialog.find("[name='deliveryAddressID']").val(cur_address_id);
+            $dialog.find("[name='deliveryAddressID']").val(curAddressId);
         }
 
         if (address != null && addresses.length != 0) {
@@ -2274,14 +2351,14 @@ ASC.CRM.InvoiceActionView = (function () {
                 .html(html)
                 .val(address.id)
                 .off("change").on("change", function () {
-                    cur_address_id = parseInt(this.value);
+                    curAddressId = parseInt(this.value);
 
-                    address = getAddressByIDOrDefault(cur_address_id, addresses)
+                    address = getAddressByIdOrDefault(curAddressId, addresses);
 
                     if (isBilling) {
-                        $dialog.find("[name='billingAddressID']").val(cur_address_id);
+                        $dialog.find("[name='billingAddressID']").val(curAddressId);
                     } else {
-                        $dialog.find("[name='deliveryAddressID']").val(cur_address_id);
+                        $dialog.find("[name='deliveryAddressID']").val(curAddressId);
                     }
                     displayAddressData($dialog, address.data);
                 })
@@ -2329,7 +2406,7 @@ ASC.CRM.InvoiceActionView = (function () {
         });
     };
 
-    var getAddressByIDOrDefault = function (id, addresses) {
+    var getAddressByIdOrDefault = function (id, addresses) {
         if (addresses == null) return null;
         if (id == 0) return addresses[0];
 
@@ -2348,15 +2425,19 @@ ASC.CRM.InvoiceActionView = (function () {
             $dialog.find(".contact_city").val(jsonData.city);
             $dialog.find(".contact_state").val(jsonData.state);
             $dialog.find(".contact_zip").val(jsonData.zip);
-            $dialog.find(".contact_country").val(jsonData.country);
+            if (jsonData.country != "") {
+                $dialog.find(".contact_country").val(jsonData.country);
+            } else {
+                $dialog.find(".contact_country").val(ASC.CRM.Resources.CRMJSResource.ChooseCountry);
+            }
         } else {
             $dialog.find(".contact_street").val("");
             $dialog.find(".contact_city").val("");
             $dialog.find(".contact_state").val("");
             $dialog.find(".contact_zip").val("");
-            $dialog.find(".contact_country").val("");
+            $dialog.find(".contact_country").val(ASC.CRM.Resources.CRMJSResource.ChooseCountry);
         }
-    }
+    };
 
     var saveAddress = function (contactId, addressData, isConsignee) {
         var params = {};
@@ -2430,53 +2511,6 @@ ASC.CRM.InvoiceActionView = (function () {
         }
 
         recalculateInvoiceLines();
-    };
-
-    var pressNumber = function (obj, event, integerOnly) {
-        var key = event.which;
-
-        // Backspace, Tab, Del ...
-        if (key == 8 || key == 9 || key == 0) {
-            return;
-        }
-
-        key = String.fromCharCode(key);
-        var regex = /[0-9]/;
-
-        if (integerOnly) {
-            if (regex.test(key)) {
-                return;
-            }
-        } else {
-            var value = jq(obj).val(),
-                isSeparator = key == "." && value.length,
-                hasSeparator = value.indexOf(".") != -1;
-            if (regex.test(key) || (isSeparator && !hasSeparator)) {
-                return;
-            }
-        }
-
-        event.returnValue = false;
-        if (event.preventDefault)
-            event.preventDefault();
-    };
-
-    var pasteNumber = function (obj, integerOnly) {
-        var oldValue = obj.value,
-            $obj = obj;
-
-        setTimeout(
-            function () {
-                var text = jq($obj).val();
-                if (isNaN(text)) {
-                    jq($obj).val(oldValue);
-                } else {
-                    if (integerOnly && text.indexOf(".") != -1) {
-                        jq($obj).val(oldValue);
-                    }
-                }
-            }, 0);
-        return true;
     };
 
     var addNewLine = function (setFocus) {
@@ -2756,6 +2790,8 @@ ASC.CRM.InvoiceActionView = (function () {
         if ($link.length > 0) {
             changeDueDate($link);
         }
+
+        jq("#invoiceIssueDate").datepicker("hide");
     };
 
     var changeDueDate = function (obj) {
@@ -2772,6 +2808,8 @@ ASC.CRM.InvoiceActionView = (function () {
             daysCount = Math.floor((dueDate.getTime() - issueDate.getTime()) / (24 * 60 * 60 * 1000));
 
         selectDueDateButton(daysCount);
+
+        jq("#invoiceDueDate").datepicker("hide");
     };
 
     var selectDueDateButton = function (daysCount) {
@@ -2810,9 +2848,10 @@ ASC.CRM.InvoiceActionView = (function () {
             var title = jq("#newItemName").val().trim(),
                 price = jq("#newItemPrice").val().trim();
 
-            if (!title || !price || Number(price) <= 0) {
-                return;
-            }
+            if (!title || !price) return;
+
+            price = Number(price);
+            if (price <= 0) return;
 
             var item = {
                 title: title,
@@ -2845,14 +2884,10 @@ ASC.CRM.InvoiceActionView = (function () {
             var name = jq("#newTaxName").val().trim(),
                 rate = jq("#newTaxRate").val().trim();
 
-            if (!name || !rate) {
-                return;
-            }
+            if (!name || !rate) return;
 
             rate = Number(rate);
-            if (rate > 100 || rate < 0) {
-                return;
-            }
+            if (Math.abs(rate) > 100) return;
 
             var tax = {
                 name: name,
@@ -2907,7 +2942,7 @@ ASC.CRM.InvoiceActionView = (function () {
             }
             if (jq(this).is("#newTaxRate")) {
                 var rate = Number(value);
-                if (rate > 100 || rate < 0) {
+                if (Math.abs(rate) > 100) {
                     enabled = false;
                 }
             }
@@ -3339,7 +3374,7 @@ ASC.CRM.InvoiceActionView = (function () {
             ShowRequiredError(jq("#invoiceDueDate"));
             isValid = false;
         } else {
-            var dueDate = jq("#invoiceDueDate").datepicker("getDate");
+            dueDate = jq("#invoiceDueDate").datepicker("getDate");
         }
         
         if (issueDate && dueDate && issueDate > dueDate) {
@@ -3443,6 +3478,7 @@ ASC.CRM.InvoiceActionView = (function () {
 
             jq("#saveInvoiceError .saveInvoiceErrorText").text(jq.format(ASC.CRM.Resources.CRMInvoiceResource.SavingInvoiceServerError, errorText));
 
+            jq("[id*=_saveButton]:first").removeClass("postInProcess");
             StudioBlockUIManager.blockUI("#saveInvoiceError", 500, 200, 0);
         }
     };
@@ -3462,7 +3498,7 @@ ASC.CRM.InvoiceActionView = (function () {
 
     return {
         init: function (contactSelectorType, errorCookieKey) {
-            jq.tmpl("blockUIPanelTemplate", {
+            jq.tmpl("template-blockUIPanel", {
                 id: "saveInvoiceError",
                 headerTest: ASC.CRM.Resources.CRMInvoiceResource.Warning,
                 questionText: "",
@@ -3536,33 +3572,7 @@ ASC.CRM.InvoiceActionView = (function () {
                 }
             }
 
-            jq("#addressDialog").find("[name='deliveryAddressID']").val(0);
-            jq("#addressDialog").find("[name='billingAddressID']").val(0);
-            if (typeof (window.invoiceJsonData) != "undefined" && window.invoiceJsonData != "") {
-                try {
-                    window.invoiceJsonData = window.invoiceJsonData ? jq.parseJSON(jq.base64.decode(window.invoiceJsonData)) : null;
-                    if (window.invoiceJsonData != null) {
-                        if (!window.invoiceJsonData.hasOwnProperty("DeliveryAddressID") || isNaN(window.invoiceJsonData.DeliveryAddressID)) {
-                            window.invoiceJsonData.DeliveryAddressID = 0;
-                        }
- 
-                        var addresses = getInvoiceContsigneeInfoList(7, 1),
-                            address = getAddressByIDOrDefault(window.invoiceJsonData.DeliveryAddressID, addresses);
-                        jq("#addressDialog").find("[name='deliveryAddressID']").val(address != null ? address.id : 0);
-
-                        if (!window.invoiceJsonData.hasOwnProperty("BillingAddressID") || isNaN(window.invoiceJsonData.BillingAddressID)) {
-                            window.invoiceJsonData.BillingAddressID = 0;
-                        }
-
-                        addresses = getInvoiceContactInfoList(7, 3);
-                        address = getAddressByIDOrDefault(window.invoiceJsonData.BillingAddressID, addresses);
-                        jq("#addressDialog").find("[name='billingAddressID']").val(address != null ? address.id : 0);
-                    }
-                } catch (e) {
-                    console.log(e);
-                    window.invoiceJsonData = null;
-                }
-            } else { window.invoiceJsonData = null; }
+            preInitAddressDialog();
 
             if (typeof (window.invoice) != "undefined") {
                 try {
@@ -3590,12 +3600,14 @@ ASC.CRM.InvoiceActionView = (function () {
         },
 
         submitForm: function (buttonUnicId) {
-            if (jq('[id*=_saveButton]:first').hasClass('disable')) {
+            if (jq('[id*=_saveButton]:first').hasClass('postInProcess')) {
                 return false;
             }
+            jq('[id*=_saveButton]:first').addClass('postInProcess');
 
             try {
                 if (!checkValidation()) {
+                    jq('[id*=_saveButton]:first').removeClass('postInProcess');
                     return false;
                 } else {
                     disablePage();
@@ -3609,6 +3621,7 @@ ASC.CRM.InvoiceActionView = (function () {
                             success: function (params, isExist) {
                                 if (isExist == true) {
                                     jq("#saveInvoiceError .saveInvoiceErrorText").text(ASC.CRM.Resources.CRMInvoiceResource.InvoiceNumberBusyError);
+                                    jq("[id*=_saveButton]:first").removeClass("postInProcess");
                                     StudioBlockUIManager.blockUI("#saveInvoiceError", 500, 200, 0);
                                     enablePage();
                                     return false;
@@ -3620,6 +3633,7 @@ ASC.CRM.InvoiceActionView = (function () {
                                 }
                             },
                             error: function (params) {
+                                jq('[id*=_saveButton]:first').removeClass('postInProcess');
                                 return false;
                             }
                         });
@@ -3628,6 +3642,7 @@ ASC.CRM.InvoiceActionView = (function () {
                 }
             } catch (e) {
                 console.log(e);
+                jq('[id*=_saveButton]:first').removeClass('postInProcess');
                 return false;
             }
         }
@@ -3640,7 +3655,7 @@ InvoiceDetailsView.ascx
 ASC.CRM.InvoiceDetailsView = (function () {
 
     var initDeleteDialog = function () {
-        jq.tmpl("blockUIPanelTemplate", {
+        jq.tmpl("template-blockUIPanel", {
             id: "deleteDialog",
             headerTest: ASC.CRM.Resources.CRMCommonResource.Confirmation,
             questionText: "",
@@ -3686,7 +3701,7 @@ ASC.CRM.InvoiceDetailsView = (function () {
             jq.dropdownToggle({
                 dropdownID: "invoiceDetailsMenuPanel",
                 switcherSelector: ".mainContainerClass .containerHeaderBlock .menu-small",
-                addTop: -2,
+                addTop: 0,
                 addLeft: -10,
                 beforeShowFunction: function () {
                     renderEditBtns();
@@ -3756,10 +3771,21 @@ ASC.CRM.InvoiceDetailsView = (function () {
         if (!window.invoice || !window.invoiceData) {
             window.location.href = "invoices.aspx";
         }
-        
-        jq(".invoice-container").replaceWith(jq.tmpl("invoiceDetailsTmpl", window.invoiceData));
 
-        renderStatusLabel();
+        if ((window.invoiceData.LogoBase64 == null || window.invoiceData.LogoBase64 == "") && window.invoiceData.hasOwnProperty("LogoBase64Id") && window.invoiceData.LogoBase64Id > 0)
+        {
+            Teamlab.getOrganisationSettingsLogo({}, window.invoiceData.LogoBase64Id, function (params, response) {
+                window.invoiceData.LogoBase64 = response;
+                jq(".invoice-container").replaceWith(jq.tmpl("invoiceDetailsTmpl", window.invoiceData));
+
+                renderStatusLabel();
+            });
+
+        } else {
+            jq(".invoice-container").replaceWith(jq.tmpl("invoiceDetailsTmpl", window.invoiceData));
+
+            renderStatusLabel();
+        }
     };
 
     var renderStatusLabel = function () {
@@ -3802,7 +3828,7 @@ ASC.CRM.InvoiceDetailsView = (function () {
 
     var print = function () {
         var styles = jq.tmpl("invoiceDetailsStylesTmpl", {})[0].outerHTML;
-        var script = "<script type='text/javascript'>window.onload = function () {this.print();this.close();};</script>";
+        var script = "<script type='text/javascript'>window.onload = function () {this.print();};</script>";
         var html = jq.tmpl("invoiceDetailsTmpl", window.invoiceData)[0].outerHTML;
 
         var win, doc;
@@ -3922,7 +3948,7 @@ ASC.CRM.InvoiceDetailsView = (function () {
                         }
                         if (warning) {
                             if (jq("#changeInvoiceStatusError").length == 0) {
-                                jq.tmpl("blockUIPanelTemplate", {
+                                jq.tmpl("template-blockUIPanel", {
                                     id: "changeInvoiceStatusError",
                                     headerTest: ASC.CRM.Resources.CRMInvoiceResource.Warning,
                                     questionText: "",

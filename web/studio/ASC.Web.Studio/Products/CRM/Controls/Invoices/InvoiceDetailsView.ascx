@@ -4,7 +4,6 @@
 <%@ Assembly Name="ASC.Web.Files" %>
 <%@ Control Language="C#" AutoEventWireup="true" CodeBehind="InvoiceDetailsView.ascx.cs"
     Inherits="ASC.Web.CRM.Controls.Invoices.InvoiceDetailsView" %>
-<%@ Import Namespace="ASC.CRM.Core" %>
 <%@ Import Namespace="ASC.Web.CRM.Classes" %>
 <%@ Import Namespace="ASC.Web.CRM.Resources" %>
 
@@ -12,14 +11,13 @@
 <div class="invoice-container"></div>
 
 <div id="invoiceDetailsMenuPanel" class="studio-action-panel">
-    <div class="corner-top left"></div>
     <ul class="dropdown-content">
         <% if (Global.CanDownloadInvoices) { %>
         <li>
             <a class="dropdown-item download-btn"><%= CRMInvoiceResource.Download %></a>
         </li>
         <% } %>
-        <% if (false) { %>
+        <% if (!MobileVer) { %>
         <li>
             <a class="dropdown-item print-btn"><%= CRMInvoiceResource.Print %></a>
         </li>

@@ -1,30 +1,28 @@
 /*
-(c) Copyright Ascensio System SIA 2010-2014
-
-This program is a free software product.
-You can redistribute it and/or modify it under the terms 
-of the GNU Affero General Public License (AGPL) version 3 as published by the Free Software
-Foundation. In accordance with Section 7(a) of the GNU AGPL its Section 15 shall be amended
-to the effect that Ascensio System SIA expressly excludes the warranty of non-infringement of 
-any third-party rights.
-
-This program is distributed WITHOUT ANY WARRANTY; without even the implied warranty 
-of MERCHANTABILITY or FITNESS FOR A PARTICULAR  PURPOSE. For details, see 
-the GNU AGPL at: http://www.gnu.org/licenses/agpl-3.0.html
-
-You can contact Ascensio System SIA at Lubanas st. 125a-25, Riga, Latvia, EU, LV-1021.
-
-The  interactive user interfaces in modified source and object code versions of the Program must 
-display Appropriate Legal Notices, as required under Section 5 of the GNU AGPL version 3.
- 
-Pursuant to Section 7(b) of the License you must retain the original Product logo when 
-distributing the program. Pursuant to Section 7(e) we decline to grant you any rights under 
-trademark law for use of our trademarks.
- 
-All the Product's GUI elements, including illustrations and icon sets, as well as technical writing
-content are licensed under the terms of the Creative Commons Attribution-ShareAlike 4.0
-International. See the License terms at http://creativecommons.org/licenses/by-sa/4.0/legalcode
+ *
+ * (c) Copyright Ascensio System Limited 2010-2015
+ *
+ * This program is freeware. You can redistribute it and/or modify it under the terms of the GNU 
+ * General Public License (GPL) version 3 as published by the Free Software Foundation (https://www.gnu.org/copyleft/gpl.html). 
+ * In accordance with Section 7(a) of the GNU GPL its Section 15 shall be amended to the effect that 
+ * Ascensio System SIA expressly excludes the warranty of non-infringement of any third-party rights.
+ *
+ * THIS PROGRAM IS DISTRIBUTED WITHOUT ANY WARRANTY; WITHOUT EVEN THE IMPLIED WARRANTY OF MERCHANTABILITY OR
+ * FITNESS FOR A PARTICULAR PURPOSE. For more details, see GNU GPL at https://www.gnu.org/copyleft/gpl.html
+ *
+ * You can contact Ascensio System SIA by email at sales@onlyoffice.com
+ *
+ * The interactive user interfaces in modified source and object code versions of ONLYOFFICE must display 
+ * Appropriate Legal Notices, as required under Section 5 of the GNU GPL version 3.
+ *
+ * Pursuant to Section 7 § 3(b) of the GNU GPL you must retain the original ONLYOFFICE logo which contains 
+ * relevant author attributions when distributing the software. If the display of the logo in its graphic 
+ * form is not reasonably feasible for technical reasons, you must include the words "Powered by ONLYOFFICE" 
+ * in every copy of the program you distribute. 
+ * Pursuant to Section 7 § 3(e) we decline to grant you any rights under trademark law for use of our trademarks.
+ *
 */
+
 
 using System;
 using System.Globalization;
@@ -45,18 +43,24 @@ namespace ASC.Web.Studio.Utility
     public enum ManagementType
     {
         General = 0,
-        ProductsAndInstruments = 1,
-        AccessRights = 2,
-        Customization = 3,
-        Backup = 4,
-        Statistic = 5,
-        ThirdPartyAuthorization = 6,
-        HelpCenter = 7,
+        Customization = 1,
+        ProductsAndInstruments = 2,
+        PortalSecurity = 3,
+        AccessRights = 4,
+        Backup = 5,
+        LoginHistory = 6,
+        AuditTrail = 7,
         LdapSettings = 8,
-        SingleSignOnSettings = 9,
-        Monitoring = 10,
-        LoginHistory = 11,
-        AuditTrail = 12
+        ThirdPartyAuthorization = 9,
+        SmtpSettings = 10,
+        Statistic = 11,
+        Monitoring = 12,
+        SingleSignOnSettings = 13,
+        Migration = 14,
+        DeletionPortal = 15,
+        HelpCenter = 16,
+        DocService = 17,
+        FullTextSearch = 18
     }
 
     //  emp-invite - confirm ivite by email
@@ -145,9 +149,19 @@ namespace ASC.Web.Studio.Utility
                  * Like https://mydomain.com that maps to <alias>.teamlab.com
                 */
                 var basedomain = WebConfigurationManager.AppSettings["core.base-domain"];
-                var http = !string.IsNullOrEmpty(basedomain) && !CoreContext.TenantManager.GetCurrentTenant().TenantDomain.EndsWith("." + basedomain, StringComparison.OrdinalIgnoreCase);
+                var tenantDomain = CoreContext.TenantManager.GetCurrentTenant().TenantDomain;
+                var http = !string.IsNullOrEmpty(basedomain) && !tenantDomain.EndsWith("." + basedomain, StringComparison.OrdinalIgnoreCase);
 
-                var u = HttpContext.Current != null ? HttpContext.Current.Request.GetUrlRewriter() : _serverRoot;
+                var u = _serverRoot;
+                if (HttpContext.Current != null)
+                {
+                    u = HttpContext.Current.Request.GetUrlRewriter();
+                    if (u.Host != tenantDomain)
+                    {
+                        http = (u.Scheme == Uri.UriSchemeHttp);
+                    }
+                }
+
                 var uriBuilder = new UriBuilder(http ? Uri.UriSchemeHttp : u.Scheme, u.Host, http && u.IsDefaultPort ? 80 : u.Port);
 
                 if (uriBuilder.Uri.IsLoopback || CoreContext.Configuration.Standalone)
@@ -157,7 +171,7 @@ namespace ASC.Web.Studio.Utility
                     {
                         uriBuilder = new UriBuilder(Uri.UriSchemeHttp + Uri.SchemeDelimiter + tenant.TenantDomain); // use TenantDomain, not MappedDomain
                     }
-                    else
+                    else if (!CoreContext.Configuration.Standalone)
                     {
                         uriBuilder.Host = tenant.TenantDomain;
                     }
@@ -215,7 +229,7 @@ namespace ASC.Web.Studio.Utility
 
         public static string GetMyStaff()
         {
-            return ToAbsolute("~/products/people/profile.aspx");
+            return CoreContext.Configuration.Personal ? ToAbsolute("~/my.aspx") : ToAbsolute("~/products/people/profile.aspx");
         }
 
         public static string GetEmployees()
@@ -294,12 +308,6 @@ namespace ASC.Web.Studio.Utility
                 IModule module;
                 GetLocationByRequest(out product, out module);
                 if (product != null) productID = product.ID;
-            }
-
-            if (productID == Guid.Empty)
-            {
-                var pid = CallContext.GetData("asc.web.product_id");
-                if (pid != null) productID = (Guid)pid;
             }
 
             return productID;
@@ -545,6 +553,7 @@ namespace ASC.Web.Studio.Utility
         public static string GetHelpLink(bool inCurrentCulture = true)
         {
             var url = WebConfigurationManager.AppSettings["web.help-center"] ?? string.Empty;
+
             if (url.Contains("{"))
             {
                 var parts = url.Split('{');
@@ -575,12 +584,12 @@ namespace ASC.Web.Studio.Utility
 
         public static string GetConfirmationUrl(string email, ConfirmType confirmType, object postfix = null, Guid userId = default(Guid))
         {
-            return GetFullAbsolutePath(GetConfirmationUrlRelative(email, confirmType, postfix, userId));
+            return GetFullAbsolutePath(GetConfirmationUrlRelative(CoreContext.TenantManager.GetCurrentTenant().TenantId, email, confirmType, postfix, userId));
         }
 
-        public static string GetConfirmationUrlRelative(string email, ConfirmType confirmType, object postfix = null, Guid userId = default(Guid))
+        public static string GetConfirmationUrlRelative(int tenantId, string email, ConfirmType confirmType, object postfix = null, Guid userId = default(Guid))
         {
-            var validationKey = EmailValidationKeyProvider.GetEmailKey(email + confirmType + (postfix ?? ""));
+            var validationKey = EmailValidationKeyProvider.GetEmailKey(tenantId, email + confirmType + (postfix ?? ""));
 
             var link = string.Format("confirm.aspx?type={0}&key={1}", confirmType, validationKey);
 
@@ -603,5 +612,6 @@ namespace ASC.Web.Studio.Utility
         }
 
         #endregion
+
     }
 }

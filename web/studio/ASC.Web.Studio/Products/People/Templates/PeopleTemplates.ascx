@@ -5,7 +5,6 @@
 <%@ Import Namespace="ASC.Web.People.Resources" %>
 
  <script id="userActionMenuTemplate" type="text/x-jquery-tmpl">
-     <div class="corner-top right"></div>
         <ul class="dropdown-content">
             {{if ($data.canEdit === "true") && ($data.isAdmin === true || $data.isMe === true ) && (user.status !== "blocked")}}
               <li><a class="edit-profile dropdown-item"><%= PeopleResource.LblEdit %></a></li>
@@ -53,7 +52,7 @@
     {{/if}}
     <td class="icon-list">
       <a class="ava" href="${user.link}">
-        <img src="${user.avatarSmall}" alt="${user.displayName}" /> 
+        <img src="${user.avatarSmall}" title="${user.displayName}" /> 
         
         {{if ($data.isAdmin === true && user.isVisitor)}}<span class="role collaborator" title="<%= ASC.Web.Studio.Core.Users.CustomNamingPeople.Substitute<Resources.Resource>("Guest").HtmlEncode() %>"></span>{{/if}}
         {{if (user.isAdmin || listAdminModules.length) && (!user.isPortalOwner)}}<span class="role admin" title="<%= Resources.Resource.Administrator %>"></span>{{/if}}
@@ -74,7 +73,11 @@
         </div>
       {{/if}}
         <div class="title">
+            {{if user.isGroupManager && user.title.length}}
+            <span class="inner-text manager">${user.title}</span>
+            {{else}}
             <span class="inner-text">${user.title}</span>
+            {{/if}}
         </div>
     </td>
     <td class="group">
@@ -87,7 +90,6 @@
                 <span class="link dotted">${user.groups.length} <%=ASC.Web.Studio.Core.Users.CustomNamingPeople.Substitute<Resources.Resource>("Departments").HtmlEncode()%></span>
             </span>
             <div id="peopleGroups_${user.id}" class="studio-action-panel">
-                <div class="corner-top right"></div>
                 <ul class="dropdown-content">
                     {{each(i, gr) user.groups}}
                     <li><a class="dropdown-item" href="#group=${gr.id}">${gr.name}</a></li>
@@ -110,13 +112,22 @@
           {{/if}}
        {{/if}}
       {{if user.isActivated && !user.isTerminated && user.email}}
-        <span class="btn email">
+        <div id="peopleEmail_${id}" class="btn email">
             <span class="link dotted">${user.email}</span>
-        </span>
-        <button class="ui-btn send-email"><span class="inner-text"><%= PeopleResource.LblSendEmail %></span></button>
-        {{if !user.isMe && !user.isTerminated}}
-          <button class="ui-btn open-dialog"><span class="inner-text"><%= PeopleResource.LblSendMessage %></span></button>
-        {{/if}}
+        </div>
+        <div id="peopleEmailSwitcher_${id}" class="studio-action-panel">
+            <ul class="dropdown-content">
+                <li>
+                    <a class="send-email dropdown-item"><%= PeopleResource.LblSendEmail %></a>
+                </li>
+                {{if !user.isMe && !user.isTerminated}}
+         <li>
+             <a class="open-dialog dropdown-item"><%= PeopleResource.LblSendMessage %></a>
+         </li>
+                {{/if}}
+            </ul>
+        </div>
+
       {{else}}
         &nbsp;
       {{/if}}

@@ -1,30 +1,28 @@
 /*
-(c) Copyright Ascensio System SIA 2010-2014
-
-This program is a free software product.
-You can redistribute it and/or modify it under the terms 
-of the GNU Affero General Public License (AGPL) version 3 as published by the Free Software
-Foundation. In accordance with Section 7(a) of the GNU AGPL its Section 15 shall be amended
-to the effect that Ascensio System SIA expressly excludes the warranty of non-infringement of 
-any third-party rights.
-
-This program is distributed WITHOUT ANY WARRANTY; without even the implied warranty 
-of MERCHANTABILITY or FITNESS FOR A PARTICULAR  PURPOSE. For details, see 
-the GNU AGPL at: http://www.gnu.org/licenses/agpl-3.0.html
-
-You can contact Ascensio System SIA at Lubanas st. 125a-25, Riga, Latvia, EU, LV-1021.
-
-The  interactive user interfaces in modified source and object code versions of the Program must 
-display Appropriate Legal Notices, as required under Section 5 of the GNU AGPL version 3.
- 
-Pursuant to Section 7(b) of the License you must retain the original Product logo when 
-distributing the program. Pursuant to Section 7(e) we decline to grant you any rights under 
-trademark law for use of our trademarks.
- 
-All the Product's GUI elements, including illustrations and icon sets, as well as technical writing
-content are licensed under the terms of the Creative Commons Attribution-ShareAlike 4.0
-International. See the License terms at http://creativecommons.org/licenses/by-sa/4.0/legalcode
+ *
+ * (c) Copyright Ascensio System Limited 2010-2015
+ *
+ * This program is freeware. You can redistribute it and/or modify it under the terms of the GNU 
+ * General Public License (GPL) version 3 as published by the Free Software Foundation (https://www.gnu.org/copyleft/gpl.html). 
+ * In accordance with Section 7(a) of the GNU GPL its Section 15 shall be amended to the effect that 
+ * Ascensio System SIA expressly excludes the warranty of non-infringement of any third-party rights.
+ *
+ * THIS PROGRAM IS DISTRIBUTED WITHOUT ANY WARRANTY; WITHOUT EVEN THE IMPLIED WARRANTY OF MERCHANTABILITY OR
+ * FITNESS FOR A PARTICULAR PURPOSE. For more details, see GNU GPL at https://www.gnu.org/copyleft/gpl.html
+ *
+ * You can contact Ascensio System SIA by email at sales@onlyoffice.com
+ *
+ * The interactive user interfaces in modified source and object code versions of ONLYOFFICE must display 
+ * Appropriate Legal Notices, as required under Section 5 of the GNU GPL version 3.
+ *
+ * Pursuant to Section 7 § 3(b) of the GNU GPL you must retain the original ONLYOFFICE logo which contains 
+ * relevant author attributions when distributing the software. If the display of the logo in its graphic 
+ * form is not reasonably feasible for technical reasons, you must include the words "Powered by ONLYOFFICE" 
+ * in every copy of the program you distribute. 
+ * Pursuant to Section 7 § 3(e) we decline to grant you any rights under trademark law for use of our trademarks.
+ *
 */
+
 
 using System;
 using System.Collections.Generic;
@@ -32,16 +30,20 @@ using System.Linq;
 using System.Web;
 using ASC.Api.Attributes;
 using ASC.Api.Employee;
-using ASC.Api.Impl;
 using ASC.Api.Interfaces;
+using ASC.Api.Utils;
 using ASC.Core;
 using ASC.Core.Tenants;
+using ASC.IPSecurity;
 using ASC.MessagingSystem;
 using ASC.Web.Core;
 using ASC.Web.Studio.Core;
 using ASC.Api.Collections;
 using ASC.Web.Core.Utility.Settings;
 using ASC.Core.Users;
+using ASC.Web.Core.CoBranding;
+using ASC.Web.Studio.Core.SMS;
+using Resources;
 
 namespace ASC.Api.Settings
 {
@@ -50,16 +52,24 @@ namespace ASC.Api.Settings
     ///</summary>
     public class SettingsApi : IApiEntryPoint
     {
-        private readonly ApiContext _context;
-
         public string Name
         {
             get { return "settings"; }
         }
 
-        public SettingsApi(ApiContext context)
+        private static HttpRequest Request
         {
-            _context = context;
+            get { return HttpContext.Current.Request; }
+        }
+
+        private static int CurrentTenant
+        {
+            get { return CoreContext.TenantManager.GetCurrentTenant().TenantId; }
+        }
+
+        private static Guid CurrentUser
+        {
+            get { return SecurityContext.CurrentAccount.ID; }
         }
 
         ///<summary>
@@ -122,6 +132,7 @@ namespace ASC.Api.Settings
         public TenantVersionWrapper SetVersion(int versionId)
         {
             SecurityContext.DemandPermissions(SecutiryConstants.EditPortalSettings);
+            CoreContext.TenantManager.GetTenantVersions().FirstOrDefault(r => r.Id == versionId).NotFoundIfNull();
 
             var tenant = CoreContext.TenantManager.GetCurrentTenant(false);
             CoreContext.TenantManager.SetTenantVersion(tenant, versionId);
@@ -134,7 +145,7 @@ namespace ASC.Api.Settings
         /// <short>
         /// Get security settings
         /// </short>
-        /// <param name="ids"></param>
+        /// <param name="ids">Module ID list</param>
         /// <returns></returns>
         [Read("security")]
         public IEnumerable<SecurityWrapper> GetWebItemSecurityInfo(IEnumerable<string> ids)
@@ -163,9 +174,9 @@ namespace ASC.Api.Settings
         /// <short>
         /// Set security settings
         /// </short>
-        /// <param name="id"></param>
-        /// <param name="enabled"></param>
-        /// <param name="subjects"></param>
+        /// <param name="id">Module ID</param>
+        /// <param name="enabled">Enabled</param>
+        /// <param name="subjects">User (Group) ID list</param>
         [Update("security")]
         public IEnumerable<SecurityWrapper> SetWebItemSecurity(string id, bool enabled, IEnumerable<Guid> subjects)
         {
@@ -175,12 +186,12 @@ namespace ASC.Api.Settings
             var securityInfo = GetWebItemSecurityInfo(new List<string> {id});
 
             if (subjects == null) return securityInfo;
-            
+
             var productName = GetProductName(new Guid(id));
 
             if (!subjects.Any())
             {
-                MessageService.Send(_context, MessageAction.ProductAccessOpened, productName);
+                MessageService.Send(Request, MessageAction.ProductAccessOpened, productName);
             }
             else
             {
@@ -188,11 +199,11 @@ namespace ASC.Api.Settings
                 {
                     if (info.Groups.Any())
                     {
-                        MessageService.Send(_context, MessageAction.GroupsOpenedProductAccess, productName, info.Groups.Select(x => x.Name));
+                        MessageService.Send(Request, MessageAction.GroupsOpenedProductAccess, productName, info.Groups.Select(x => x.Name));
                     }
                     if (info.Users.Any())
                     {
-                        MessageService.Send(_context, MessageAction.UsersOpenedProductAccess, productName, info.Users.Select(x => HttpUtility.HtmlDecode(x.DisplayName)));
+                        MessageService.Send(Request, MessageAction.UsersOpenedProductAccess, productName, info.Users.Select(x => HttpUtility.HtmlDecode(x.DisplayName)));
                     }
                 }
             }
@@ -243,7 +254,7 @@ namespace ASC.Api.Settings
                 WebItemSecurity.SetSecurity(item.Key, item.Value, subjects);
             }
 
-            MessageService.Send(_context, MessageAction.ProductsListUpdated);
+            MessageService.Send(Request, MessageAction.ProductsListUpdated);
 
             return GetWebItemSecurityInfo(itemList.Keys.ToList());
         }
@@ -271,16 +282,16 @@ namespace ASC.Api.Settings
             WebItemSecurity.SetProductAdministrator(productid, userid, administrator);
 
             var admin = CoreContext.UserManager.GetUsers(userid);
-            
+
             if (productid == Guid.Empty)
             {
                 var messageAction = administrator ? MessageAction.AdministratorOpenedFullAccess : MessageAction.AdministratorDeleted;
-                MessageService.Send(_context, messageAction, admin.DisplayUserName(false));
+                MessageService.Send(Request, messageAction, admin.DisplayUserName(false));
             }
             else
             {
                 var messageAction = administrator ? MessageAction.ProductAddedAdministrator : MessageAction.ProductDeletedAdministrator;
-                MessageService.Send(_context, messageAction, GetProductName(productid), admin.DisplayUserName(false));
+                MessageService.Send(Request, messageAction, GetProductName(productid), admin.DisplayUserName(false));
             }
 
             return new {ProductId = productid, UserId = userid, Administrator = administrator};
@@ -305,8 +316,107 @@ namespace ASC.Api.Settings
             return SettingsManager.Instance.LoadSettings<TenantInfoSettings>(CoreContext.TenantManager.GetCurrentTenant().TenantId).GetAbsoluteCompanyLogoPath();
         }
 
+        /// <summary>
+        /// Get portal ip restrictions
+        /// </summary>
+        /// <returns></returns>
+        [Read("/iprestrictions")]
+        public IEnumerable<IPRestriction> GetIpRestrictions()
+        {
+            SecurityContext.DemandPermissions(SecutiryConstants.EditPortalSettings);
+            return IPRestrictionsService.Get(CurrentTenant);
+        }
 
-        private string GetProductName(Guid productId)
+        /// <summary>
+        /// save new portal ip restrictions
+        /// </summary>
+        /// <param name="ips">ip restrictions</param>
+        /// <returns></returns>
+        [Update("iprestrictions")]
+        public IEnumerable<string> SaveIpRestrictions(IEnumerable<string> ips)
+        {
+            SecurityContext.DemandPermissions(SecutiryConstants.EditPortalSettings);
+            return IPRestrictionsService.Save(ips, CurrentTenant);
+        }
+
+        /// <summary>
+        /// update ip restrictions settings
+        /// </summary>
+        /// <param name="enable">enable ip restrictions settings</param>
+        /// <returns></returns>
+        [Update("iprestrictions/settings")]
+        public IPRestrictionsSettings UpdateIpRestrictionsSettings(bool enable)
+        {
+            SecurityContext.DemandPermissions(SecutiryConstants.EditPortalSettings);
+
+            var settings = new IPRestrictionsSettings {Enable = enable};
+            SettingsManager.Instance.SaveSettings(settings, CurrentTenant);
+
+            return settings;
+        }
+
+        /// <summary>
+        /// update tips settings
+        /// </summary>
+        /// <param name="show">show tips for user</param>
+        /// <returns></returns>
+        [Update("tips")]
+        public TipsSettings UpdateTipsSettings(bool show)
+        {
+            var settings = new TipsSettings { Show = show };
+            SettingsManager.Instance.SaveSettingsFor(settings, CurrentUser);
+
+            return settings;
+        }
+
+        /// <summary>
+        /// Complete Wizard
+        /// </summary>
+        /// <returns>WizardSettings</returns>
+        /// <visible>false</visible>
+        [Update("wizard/complete")]
+        public WizardSettings CompleteWizard()
+        {
+            SecurityContext.DemandPermissions(SecutiryConstants.EditPortalSettings);
+
+            var tenantId = CoreContext.TenantManager.GetCurrentTenant().TenantId;
+            var settings = SettingsManager.Instance.LoadSettings<WizardSettings>(tenantId);
+
+            if (settings.Completed)
+                return settings;
+
+            settings.Completed = true;
+            SettingsManager.Instance.SaveSettings(settings, tenantId);
+
+            return settings;
+        }
+
+        /// <summary>
+        /// Update two-factor authentication settings
+        /// </summary>
+        /// <param name="enable">Enable two-factor authentication</param>
+        /// <returns>Setting value</returns>
+        [Update("sms")]
+        public bool SmsSettings(bool enable)
+        {
+            SecurityContext.DemandPermissions(SecutiryConstants.EditPortalSettings);
+
+            if (!StudioSmsNotificationSettings.IsVisibleSettings || CoreContext.PaymentManager.GetApprovedPartner() != null)
+            {
+                throw new Exception(Resource.SmsNotAvailable);
+            }
+
+            if (enable && StudioSmsNotificationSettings.LeftSms <= 0)
+                throw new Exception(Resource.SmsNotPaidError);
+
+            StudioSmsNotificationSettings.Enable = enable;
+
+            MessageService.Send(Request, MessageAction.TwoFactorAuthenticationSettingsUpdated);
+
+            return StudioSmsNotificationSettings.Enable;
+        }
+
+        private static string GetProductName(Guid productId)
         {
             var product = WebItemManager.Instance[productId] as IProduct;
             return productId == Guid.Empty ? "All" : product != null ? product.Name : productId.ToString();

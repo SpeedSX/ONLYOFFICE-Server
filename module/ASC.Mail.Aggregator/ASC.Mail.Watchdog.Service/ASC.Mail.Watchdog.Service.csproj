@@ -19,8 +19,6 @@
     <OldToolsVersion>3.5</OldToolsVersion>
     <TargetFrameworkProfile />
     <IsWebBootstrapper>false</IsWebBootstrapper>
-    <TrunkDir>..\..\..\</TrunkDir>
-    <RedDir Condition=" '$(RedDir)' == '' ">$(TrunkDir)redistributable\asc\</RedDir>
     <PublishUrl>publish\</PublishUrl>
     <Install>true</Install>
     <InstallFrom>Disk</InstallFrom>
@@ -35,12 +33,12 @@
     <ApplicationVersion>1.0.0.%2a</ApplicationVersion>
     <UseApplicationTrust>false</UseApplicationTrust>
     <BootstrapperEnabled>true</BootstrapperEnabled>
+    <OutputPath>bin\$(Configuration)\</OutputPath>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -50,7 +48,6 @@
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -60,23 +57,18 @@
   <ItemGroup>
     <Reference Include="ASC.Common, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\redistributable\asc\ASC.Common.dll</HintPath>
+      <HintPath>..\..\..\web\studio\ASC.Web.Studio\bin\ASC.Common.dll</HintPath>
     </Reference>
-    <Reference Include="ASC.Mail.Aggregator, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\redistributable\asc\ASC.Mail.Aggregator.dll</HintPath>
+    <Reference Include="CommandLine">
+      <HintPath>..\..\..\packages\CommandLineParser.1.9.71\lib\net45\CommandLine.dll</HintPath>
     </Reference>
-    <Reference Include="log4net, Version=1.2.10.0, Culture=neutral, PublicKeyToken=1b44e1d426115821, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\redistributable\third-party\log4net\log4net.dll</HintPath>
+    <Reference Include="log4net">
+      <HintPath>..\..\..\packages\log4net.2.0.3\lib\net40-client\log4net.dll</HintPath>
+      <Private>True</Private>
     </Reference>
-    <Reference Include="MySql.Data, Version=6.4.4.0, Culture=neutral, PublicKeyToken=c5687fc88969c44d, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\redistributable\third-party\db\mysql\MySql.Data.dll</HintPath>
-    </Reference>
-    <Reference Include="NLog, Version=2.0.0.0, Culture=neutral, PublicKeyToken=5120e14c03d0593c, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\redistributable\third-party\Nlog 2.1\net35\NLog.dll</HintPath>
+    <Reference Include="MySql.Data">
+      <HintPath>..\..\..\packages\MySql.Data.6.8.3\lib\net45\MySql.Data.dll</HintPath>
+      <Private>True</Private>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.configuration" />
@@ -94,13 +86,12 @@
       <RequiredTargetFramework>3.5</RequiredTargetFramework>
     </Reference>
     <Reference Include="System.Data" />
-    <Reference Include="System.Deployment" />
     <Reference Include="System.Drawing" />
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="WatchdogServiceSelfInstaller.cs" />
+    <Compile Include="Program.Options.cs" />
     <Compile Include="WatchdogService.cs">
       <SubType>Component</SubType>
     </Compile>
@@ -125,7 +116,9 @@
       <DependentUpon>Resources.resx</DependentUpon>
       <DesignTime>True</DesignTime>
     </Compile>
-    <None Include="App.config" />
+    <None Include="App.config">
+      <SubType>Designer</SubType>
+    </None>
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
@@ -148,18 +141,15 @@
       <Install>true</Install>
     </BootstrapperPackage>
   </ItemGroup>
-  <!--<ItemGroup>
-	<Content Include=".\NLog.dll" />
-	<Content Include=".\MultiTargetLog.dll" />
+  <ItemGroup>
+    <ProjectReference Include="..\ASC.Mail.Aggregator.Common\ASC.Mail.Aggregator.Common.csproj">
+      <Project>{26222fc6-1f6d-44e9-a82b-36bb8355220e}</Project>
+      <Name>ASC.Mail.Aggregator.Common</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ASC.Mail.Aggregator\ASC.Mail.Aggregator.csproj">
+      <Project>{7080343d-fbe7-423a-9405-4f883f6e235b}</Project>
+      <Name>ASC.Mail.Aggregator</Name>
+    </ProjectReference>
   </ItemGroup>
-  -->
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
-       Other similar extension points exist, see Microsoft.Common.targets.
-  <Target Name="BeforeBuild">
-  </Target>
-  -->
-  <Target Name="AfterBuild">
-    <Copy SourceFiles="@(IntermediateAssembly)" DestinationFolder="$(RedDir)" SkipUnchangedFiles="true" />
-  </Target>
 </Project>

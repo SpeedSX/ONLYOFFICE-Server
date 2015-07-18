@@ -2,8 +2,7 @@
 <%@ Assembly Name="ASC.Web.CRM" %>
 <%@ Assembly Name="ASC.Web.Core" %>
 <%@ Import Namespace="ASC.Web.CRM.Classes" %>
-<%@ Import Namespace="ASC.Web.CRM.Configuration" %>
-<%@ Import Namespace="ASC.Web.Core.Utility.Skins" %>
+<%@ Import Namespace="ASC.Web.Core.Mobile" %>
 <%@ Import Namespace="ASC.Web.CRM.Resources" %>
 
 <%--Invoice List--%>
@@ -44,7 +43,6 @@
         <div class="header-menu-spacer">&nbsp;</div>
 
         <div id="changeStatusDialog" class="studio-action-panel changeStatusDialog">
-            <div class="corner-top left"></div>
             <ul class="dropdown-content mobile-overflow"></ul>
         </div>
 
@@ -87,13 +85,13 @@
     </div>
 
     <div id="invoiceActionMenu" class="studio-action-panel">
-        <div class="corner-top right"></div>
         <ul class="dropdown-content">
             <li><a class="showProfileLink dropdown-item"><%= CRMInvoiceResource.ShowInvoiceProfile %></a></li>
+            <li><a class="showProfileLinkNewTab dropdown-item"><%= CRMInvoiceResource.ShowInvoiceProfileNewTab %></a></li>
             <% if (Global.CanDownloadInvoices) { %>
             <li><a class="downloadLink dropdown-item"><%= CRMInvoiceResource.Download %></a></li>
             <% } %>
-            <% if (false) { %>
+            <% if (MobileDetector.IsMobile) { %>
             <li><a class="printLink dropdown-item"><%= CRMInvoiceResource.Print %></a></li>
             <% } %>
             <% if (Global.CanDownloadInvoices) { %>
@@ -127,7 +125,7 @@
         {{if isSimpleView != true}}
         <td class="borderBase" style="padding: 0 0 0 6px;">
             <input type="checkbox" id="checkInvoice_${id}" onclick="ASC.CRM.ListInvoiceView.selectItem(this);" {{if isChecked == true}}checked="checked"{{/if}} />
-            <img id="loaderImg_${id}" style="display:none;" alt="" src="<%=WebImageSupplier.GetAbsoluteWebPath("loader_16.gif")%>" />
+            <div id="loaderImg_${id}" class="loader-middle baseList_loaderImg"></div>
         </td>
         {{/if}} 
         <td class="borderBase">
@@ -226,7 +224,7 @@
                 <div class="header-base-small"><%= CRMInvoiceResource.FormInvoiceItemPrice %></div>
                 <input type="text" class="textEdit" id="newItemPrice">
             </div>
-            <div class="small-button-container">
+            <div class="button-container">
                 <a class="button gray disable create-btn"><%= CRMCommonResource.Create %></a>
                 <a class="button gray cancel-btn"><%= CRMCommonResource.Cancel %></a>
             </div>
@@ -254,9 +252,9 @@
             </div>
             <div class="headerPanelSmall-splitter">
                 <div class="header-base-small"><%= CRMInvoiceResource.InvoiceTaxRate %></div>
-                <input type="text" class="textEdit" id="newTaxRate" maxlength="3"> (%)
+                <input type="text" class="textEdit small" id="newTaxRate" maxlength="4"> %
             </div>
-            <div class="small-button-container">
+            <div class="button-container">
                 <a class="button gray disable create-btn"><%= CRMCommonResource.Create %></a>
                 <a class="button gray cancel-btn"><%= CRMCommonResource.Cancel %></a>
                 <div class="createTaxError" title="<%= CRMInvoiceResource.InvoiceTaxAlreadyRegisteredError %>"><%= CRMInvoiceResource.InvoiceTaxAlreadyRegisteredError %></div>

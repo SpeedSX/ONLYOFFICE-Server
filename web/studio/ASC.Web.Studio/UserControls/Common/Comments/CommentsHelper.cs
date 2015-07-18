@@ -1,34 +1,33 @@
 /*
-(c) Copyright Ascensio System SIA 2010-2014
-
-This program is a free software product.
-You can redistribute it and/or modify it under the terms 
-of the GNU Affero General Public License (AGPL) version 3 as published by the Free Software
-Foundation. In accordance with Section 7(a) of the GNU AGPL its Section 15 shall be amended
-to the effect that Ascensio System SIA expressly excludes the warranty of non-infringement of 
-any third-party rights.
-
-This program is distributed WITHOUT ANY WARRANTY; without even the implied warranty 
-of MERCHANTABILITY or FITNESS FOR A PARTICULAR  PURPOSE. For details, see 
-the GNU AGPL at: http://www.gnu.org/licenses/agpl-3.0.html
-
-You can contact Ascensio System SIA at Lubanas st. 125a-25, Riga, Latvia, EU, LV-1021.
-
-The  interactive user interfaces in modified source and object code versions of the Program must 
-display Appropriate Legal Notices, as required under Section 5 of the GNU AGPL version 3.
- 
-Pursuant to Section 7(b) of the License you must retain the original Product logo when 
-distributing the program. Pursuant to Section 7(e) we decline to grant you any rights under 
-trademark law for use of our trademarks.
- 
-All the Product's GUI elements, including illustrations and icon sets, as well as technical writing
-content are licensed under the terms of the Creative Commons Attribution-ShareAlike 4.0
-International. See the License terms at http://creativecommons.org/licenses/by-sa/4.0/legalcode
+ *
+ * (c) Copyright Ascensio System Limited 2010-2015
+ *
+ * This program is freeware. You can redistribute it and/or modify it under the terms of the GNU 
+ * General Public License (GPL) version 3 as published by the Free Software Foundation (https://www.gnu.org/copyleft/gpl.html). 
+ * In accordance with Section 7(a) of the GNU GPL its Section 15 shall be amended to the effect that 
+ * Ascensio System SIA expressly excludes the warranty of non-infringement of any third-party rights.
+ *
+ * THIS PROGRAM IS DISTRIBUTED WITHOUT ANY WARRANTY; WITHOUT EVEN THE IMPLIED WARRANTY OF MERCHANTABILITY OR
+ * FITNESS FOR A PARTICULAR PURPOSE. For more details, see GNU GPL at https://www.gnu.org/copyleft/gpl.html
+ *
+ * You can contact Ascensio System SIA by email at sales@onlyoffice.com
+ *
+ * The interactive user interfaces in modified source and object code versions of ONLYOFFICE must display 
+ * Appropriate Legal Notices, as required under Section 5 of the GNU GPL version 3.
+ *
+ * Pursuant to Section 7 § 3(b) of the GNU GPL you must retain the original ONLYOFFICE logo which contains 
+ * relevant author attributions when distributing the software. If the display of the logo in its graphic 
+ * form is not reasonably feasible for technical reasons, you must include the words "Powered by ONLYOFFICE" 
+ * in every copy of the program you distribute. 
+ * Pursuant to Section 7 § 3(e) we decline to grant you any rights under trademark law for use of our trademarks.
+ *
 */
+
 
 using System;
 using System.Collections.Generic;
 using System.Text;
+using ASC.Web.Studio.Utility.HtmlUtility;
 
 namespace ASC.Web.Studio.UserControls.Common.Comments
 {
@@ -42,31 +41,9 @@ namespace ASC.Web.Studio.UserControls.Common.Comments
         public const string OddStyle = "border-bottom: 1px solid #DDD;border-top: 1px solid #DDD;";
 
         public static string GetOneCommentHtml(
-            CommentsList control,
-            CommentInfo comment,
-            bool odd)
-        {
-            return GetOneCommentHtml(
-                comment,
-                odd,
-                control.RealUserProfileLinkResolver,
-                control.Simple,
-                control.BehaviorID,
-                control.EditCommentLink,
-                control.ResponseCommentLink,
-                control.RemoveCommentLink,
-                control.InactiveMessage,
-                control.ConfirmRemoveCommentMessage,
-                control.JavaScriptRemoveCommentFunctionName,
-                control.PID
-                );
-        }
-
-        public static string GetOneCommentHtml(
             CommentInfo comment,
             bool odd,
             Func<string, string> userProfileLink,
-            bool simple,
             string jsObjName,
             string editCommentLink,
             string responseCommentLink,
@@ -94,15 +71,11 @@ namespace ASC.Web.Studio.UserControls.Common.Comments
 
                 sb.Append("</div>");
 
-                //if (!comment.IsRead)
-                //{
-                //    sb.Append("<td valign=\"top\" style=\"padding-top:2px;\" align=\"right\">&nbsp;&nbsp;&nbsp;<img src=\"" + newImageFile + "\" /></td>");
-                //}
                 if (!string.IsNullOrEmpty(comment.UserPost))
                     sb.AppendFormat("<div style=\"padding-top:2px;padding-left:10px;\" class='describe-text'>{0}</div>", comment.UserPost.HtmlEncode());
 
                 sb.AppendFormat("<div id='content_{0}' style='padding-top:8px;padding-left:10px;' class='longWordsBreak'>", comment.CommentID);
-                sb.Append(comment.CommentBody);
+                sb.Append(HtmlUtility.GetFull(comment.CommentBody));
                 sb.Append("</div>");
 
                 if (comment.Attachments != null && comment.Attachments.Count > 0)
@@ -145,8 +118,10 @@ namespace ASC.Web.Studio.UserControls.Common.Comments
                 {
                     if (drowSplitter) sb.Append("<span class=\"text-medium-describe  splitter\"> </span>");
 
-                    sb.AppendFormat("<a class=\"link dotline gray\" id=\"remove_{0}\" href=\"javascript:void(0);\" onclick=\"javascript:if(window.confirm('{2}')){{AjaxPro.onLoading = function(b){{}}; {3}('{0}'," + (String.IsNullOrEmpty(PID) ? "" : "'" + PID + "' ,") + "CommentsManagerObj.callbackRemove);}}return false;\" >{1}</a>",
-                                    comment.CommentID, removeCommentLink, confirmRemoveCommentMessage, javaScriptRemoveCommentFunctionName);
+                    sb.AppendFormat(
+                        "<a class=\"link dotline gray\" id=\"remove_{0}\" href=\"javascript:void(0);\" onclick=\"javascript:AjaxPro.onLoading = function(b){{}}; " +
+                        "StudioConfirm.OpenDialog('', function() {{{3}('{0}'," + (String.IsNullOrEmpty(PID) ? "" : "'" + PID + "' ,") + "CommentsManagerObj.callbackRemove)}}); return false;\" >{1}</a>",
+                        comment.CommentID, removeCommentLink, confirmRemoveCommentMessage, javaScriptRemoveCommentFunctionName);
                 }
                 sb.Append("</div>");
 
@@ -164,12 +139,11 @@ namespace ASC.Web.Studio.UserControls.Common.Comments
             bool isFirstLevel,
             bool odd)
         {
+            var cntr = odd ? 1 : 2;
             return GetOneCommentHtmlWithContainer(
                 comment,
                 isFirstLevel,
-                odd,
                 control.RealUserProfileLinkResolver,
-                control.Simple,
                 control.BehaviorID,
                 control.EditCommentLink,
                 control.ResponseCommentLink,
@@ -177,40 +151,7 @@ namespace ASC.Web.Studio.UserControls.Common.Comments
                 control.InactiveMessage,
                 control.ConfirmRemoveCommentMessage,
                 control.JavaScriptRemoveCommentFunctionName,
-                control.PID
-                );
-        }
-
-        public static string GetOneCommentHtmlWithContainer(
-            CommentInfo comment,
-            bool isFirstLevel,
-            bool odd,
-            Func<string, string> userProfileLink,
-            bool simple,
-            string jsObjName,
-            string editCommentLink,
-            string responseCommentLink,
-            string removeCommentLink,
-            string inactiveMessage,
-            string confirmRemoveCommentMessage,
-            string javaScriptRemoveCommentFunctionName,
-            string PID
-            )
-        {
-            var cntr = odd ? 1 : 2;
-            return GetOneCommentHtmlWithContainer(
-                comment,
-                isFirstLevel,
-                userProfileLink,
-                simple,
-                jsObjName,
-                editCommentLink,
-                responseCommentLink,
-                removeCommentLink,
-                inactiveMessage,
-                confirmRemoveCommentMessage,
-                javaScriptRemoveCommentFunctionName,
-                PID,
+                control.PID,
                 null,
                 ref cntr
                 );
@@ -227,7 +168,6 @@ namespace ASC.Web.Studio.UserControls.Common.Comments
                 comment,
                 isFirstLevel,
                 control.RealUserProfileLinkResolver,
-                control.Simple,
                 control.BehaviorID,
                 control.EditCommentLink,
                 control.ResponseCommentLink,
@@ -245,7 +185,6 @@ namespace ASC.Web.Studio.UserControls.Common.Comments
             CommentInfo comment,
             bool isFirstLevel,
             Func<string, string> userProfileLink,
-            bool simple,
             string jsObjName,
             string editCommentLink,
             string responseCommentLink,
@@ -271,7 +210,6 @@ namespace ASC.Web.Studio.UserControls.Common.Comments
                     comment,
                     commentIndex%2 == 1,
                     userProfileLink,
-                    simple,
                     jsObjName,
                     editCommentLink,
                     responseCommentLink,

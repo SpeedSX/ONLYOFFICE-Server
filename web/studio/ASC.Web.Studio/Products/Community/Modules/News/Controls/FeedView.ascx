@@ -1,4 +1,4 @@
-﻿<%@ Assembly Name="ASC.Web.Community.News" %>
+﻿<%@ Assembly Name="ASC.Web.Community" %>
 <%@ Control Language="C#" AutoEventWireup="true" CodeBehind="FeedView.ascx.cs" Inherits="ASC.Web.Community.News.Controls.FeedView" %>
 <%@ Import Namespace="ASC.Web.Community.News.Resources" %>
 <div id="feedPrevDiv">
@@ -19,7 +19,6 @@
 </div>
 
 <div id="eventsActionsMenuPanel" class="studio-action-panel">
-    <div class="corner-top left"></div>
 <ul class="dropdown-content">
     <asp:Literal runat="server" ID="EditorButtons"></asp:Literal>
 

@@ -1,35 +1,29 @@
 /*
-(c) Copyright Ascensio System SIA 2010-2014
-
-This program is a free software product.
-You can redistribute it and/or modify it under the terms 
-of the GNU Affero General Public License (AGPL) version 3 as published by the Free Software
-Foundation. In accordance with Section 7(a) of the GNU AGPL its Section 15 shall be amended
-to the effect that Ascensio System SIA expressly excludes the warranty of non-infringement of 
-any third-party rights.
-
-This program is distributed WITHOUT ANY WARRANTY; without even the implied warranty 
-of MERCHANTABILITY or FITNESS FOR A PARTICULAR  PURPOSE. For details, see 
-the GNU AGPL at: http://www.gnu.org/licenses/agpl-3.0.html
-
-You can contact Ascensio System SIA at Lubanas st. 125a-25, Riga, Latvia, EU, LV-1021.
-
-The  interactive user interfaces in modified source and object code versions of the Program must 
-display Appropriate Legal Notices, as required under Section 5 of the GNU AGPL version 3.
- 
-Pursuant to Section 7(b) of the License you must retain the original Product logo when 
-distributing the program. Pursuant to Section 7(e) we decline to grant you any rights under 
-trademark law for use of our trademarks.
- 
-All the Product's GUI elements, including illustrations and icon sets, as well as technical writing
-content are licensed under the terms of the Creative Commons Attribution-ShareAlike 4.0
-International. See the License terms at http://creativecommons.org/licenses/by-sa/4.0/legalcode
+ *
+ * (c) Copyright Ascensio System Limited 2010-2015
+ *
+ * This program is freeware. You can redistribute it and/or modify it under the terms of the GNU 
+ * General Public License (GPL) version 3 as published by the Free Software Foundation (https://www.gnu.org/copyleft/gpl.html). 
+ * In accordance with Section 7(a) of the GNU GPL its Section 15 shall be amended to the effect that 
+ * Ascensio System SIA expressly excludes the warranty of non-infringement of any third-party rights.
+ *
+ * THIS PROGRAM IS DISTRIBUTED WITHOUT ANY WARRANTY; WITHOUT EVEN THE IMPLIED WARRANTY OF MERCHANTABILITY OR
+ * FITNESS FOR A PARTICULAR PURPOSE. For more details, see GNU GPL at https://www.gnu.org/copyleft/gpl.html
+ *
+ * You can contact Ascensio System SIA by email at sales@onlyoffice.com
+ *
+ * The interactive user interfaces in modified source and object code versions of ONLYOFFICE must display 
+ * Appropriate Legal Notices, as required under Section 5 of the GNU GPL version 3.
+ *
+ * Pursuant to Section 7 § 3(b) of the GNU GPL you must retain the original ONLYOFFICE logo which contains 
+ * relevant author attributions when distributing the software. If the display of the logo in its graphic 
+ * form is not reasonably feasible for technical reasons, you must include the words "Powered by ONLYOFFICE" 
+ * in every copy of the program you distribute. 
+ * Pursuant to Section 7 § 3(e) we decline to grant you any rights under trademark law for use of our trademarks.
+ *
 */
 
-/*
-    Copyright (c) Ascensio System SIA 2013. All rights reserved.
-    http://www.teamlab.com
-*/
+
 ASC.Projects.Discussions = (function() {
     var isInit = false;
 
@@ -40,11 +34,12 @@ ASC.Projects.Discussions = (function() {
 
     var advansedFilter;
     var discussionsList;
+    var self;
 
     //pagination
 
     var setCurrentFilter = function(filter) {
-        ASC.Projects.Discussions.currentFilter = filter;
+        self.currentFilter = filter;
     };
     
     //init
@@ -52,13 +47,17 @@ ASC.Projects.Discussions = (function() {
         if (isInit === false) {
             isInit = true;
         }
-
-        ASC.Projects.Common.setDocumentTitle(ASC.Projects.Resources.ProjectsJSResource.DiscussionsModule);
-        ASC.Projects.Common.checkElementNotFound(ASC.Projects.Resources.ProjectsJSResource.DiscussionNotFound);
+        self = this;
+        self.isFirstLoad = true;
+        
+        self.setDocumentTitle(ASC.Projects.Resources.ProjectsJSResource.DiscussionsModule);
+        self.checkElementNotFound(ASC.Projects.Resources.ProjectsJSResource.DiscussionNotFound);
 
         myGuid = Teamlab.profile.id;
 
-        ASC.Projects.Common.initPageNavigator(this, "discussionsKeyForPagination", true);
+        self.showLoader();
+        
+        self.initPageNavigator("discussionsKeyForPagination", true);
 
         advansedFilter = jq('#ProjectsAdvansedFilter');
         discussionsList = jq('#discussionsList');
@@ -66,10 +65,13 @@ ASC.Projects.Discussions = (function() {
         currentProjectId = jq.getURLParam('prjID');
 
         // waiting data from api
-        jq(document).bind("createAdvansedFilter", function () {
-            ASC.Projects.Discussions.createAdvansedFilter();
-        });
+        self.createAdvansedFilter();
 
+        discussionsList.on("click", ".title-list .status", function () {
+            var path = jq.changeParamValue(ASC.Controls.AnchorController.getAnchor(), 'status', 'archived');
+            ASC.Controls.AnchorController.move(path);
+        });
+        
         discussionsList.on("click", ".name-list.project", function () {
             var projectId = jq(this).attr('data-projectId');
             var path = jq.changeParamValue(ASC.Controls.AnchorController.getAnchor(), 'project', projectId);
@@ -86,7 +88,7 @@ ASC.Projects.Discussions = (function() {
         });
 
         jq("#countOfRows").change(function (evt) {
-            ASC.Projects.Common.changeCountOfRows(ASC.Projects.Discussions, this.value);
+            self.changeCountOfRows(this.value);
         });
 
     };
@@ -101,7 +103,7 @@ ASC.Projects.Discussions = (function() {
         //Author
 
         if (currentProjectId) {
-            if (ASC.Projects.Common.userInProjectTeam(Teamlab.profile.id)) {
+            if (self.userInProjectTeam(Teamlab.profile.id)) {
                 filters.push({
                     type: "combobox",
                     id: "me_author",
@@ -163,7 +165,7 @@ ASC.Projects.Discussions = (function() {
                 title: ASC.Projects.Resources.ProjectsFilterResource.OtherProjects,
                 filtertitle: ASC.Projects.Resources.ProjectsFilterResource.ByProject + ":",
                 group: ASC.Projects.Resources.ProjectsFilterResource.ByProject,
-                options: ASC.Projects.Common.getProjectsForFilter(),
+                options: self.getProjectsForFilter(),
                 groupby: "projects",
                 defaulttitle: ASC.Projects.Resources.ProjectsFilterResource.Select
             });
@@ -178,6 +180,35 @@ ASC.Projects.Discussions = (function() {
                 defaulttitle: ASC.Projects.Resources.ProjectsFilterResource.Select
             });
         }
+        // Status
+        filters.push({
+            type: "combobox",
+            id: "open",
+            title: ASC.Projects.Resources.ProjectsFilterResource.StatusOpenDiscussion,
+            filtertitle: ASC.Projects.Resources.ProjectsFilterResource.ByStatus + ":",
+            group: ASC.Projects.Resources.ProjectsFilterResource.ByStatus,
+            hashmask: "combobox/{0}",
+            groupby: "status",
+            options:
+                [
+                    { value: "open", title: ASC.Projects.Resources.ProjectsFilterResource.StatusOpenDiscussion, def: true },
+                    { value: "archived", title: ASC.Projects.Resources.ProjectsFilterResource.StatusArchivedDiscussion }
+                ]
+        });
+        filters.push({
+            type: "combobox",
+            id: "archived",
+            title: ASC.Projects.Resources.ProjectsFilterResource.StatusArchivedDiscussion,
+            filtertitle: ASC.Projects.Resources.ProjectsFilterResource.ByStatus + ":",
+            group: ASC.Projects.Resources.ProjectsFilterResource.ByStatus,
+            hashmask: "combobox/{0}",
+            groupby: "status",
+            options:
+                [
+                    { value: "open", title: ASC.Projects.Resources.ProjectsFilterResource.StatusOpenDiscussion },
+                    { value: "archived", title: ASC.Projects.Resources.ProjectsFilterResource.StatusArchivedDiscussion, def: true }
+                ]
+        });
         //Creation date
         filters.push({
             type: "daterange",
@@ -217,18 +248,18 @@ ASC.Projects.Discussions = (function() {
             hashmask: "followed"
         });
 
-        ASC.Projects.Discussions.filters = filters;
-        ASC.Projects.Discussions.colCount = 3;
-        if (currentProjectId) ASC.Projects.Discussions.colCount = 2;
+        self.filters = filters;
+        self.colCount = 3;
+        if (currentProjectId) self.colCount = 2;
 
-        ASC.Projects.Discussions.sorters =
+        self.sorters =
         [
             { id: "comments", title: ASC.Projects.Resources.ProjectsFilterResource.ByComments, sortOrder: "descending", def: true },
             { id: "create_on", title: ASC.Projects.Resources.ProjectsFilterResource.ByCreateDate, sortOrder: "descending" },
             { id: "title", title: ASC.Projects.Resources.ProjectsFilterResource.ByTitle, sortOrder: "ascending" }
         ];
 
-        ASC.Projects.ProjectsAdvansedFilter.init(ASC.Projects.Discussions);
+        ASC.Projects.ProjectsAdvansedFilter.init(self);
 
         // ga-track-events
 
@@ -254,27 +285,23 @@ ASC.Projects.Discussions = (function() {
         });
     };
 
-    var getData = function(filter) {
-        filter.Count = ASC.Projects.Discussions.entryCountOnPage;
-        filter.StartIndex = ASC.Projects.Discussions.entryCountOnPage * ASC.Projects.Discussions.currentPage;
+    var getData = function () {
+        self.showLoader();
+        self.currentFilter.Count = self.entryCountOnPage;
+        self.currentFilter.StartIndex = self.entryCountOnPage * self.currentPage;
 
-        if (filter.StartIndex > filterDiscCount) {
-            filter.StartIndex = 0;
-            this.currentPage = 1;
-        }
-
-        Teamlab.getPrjDiscussions({}, { filter: filter, success: onGetDiscussions });
+        Teamlab.getPrjDiscussions({}, { filter: self.currentFilter, success: onGetDiscussions });
     };
 
     var showOrHideEmptyScreen = function(discussionCount) {
         if (discussionCount) {
             jq(".noContentBlock").hide();
-            ASC.Projects.Common.showAdvansedFilter();
+            self.showAdvansedFilter();
             return;
         }
         jq("#tableForNavigation").hide();
         if (ASC.Projects.ProjectsAdvansedFilter.baseFilter) {
-            ASC.Projects.Common.hideAdvansedFilter();
+            self.hideAdvansedFilter();
             jq('#discEmptyScreenForFilter').hide();
             jq('#emptyListDiscussion').show();
 
@@ -282,18 +309,19 @@ ASC.Projects.Discussions = (function() {
             jq("#tableForNavigation").hide();
             if (filterDiscCount == 0) {
                 jq('#emptyListDiscussion').hide();
-                ASC.Projects.Common.showAdvansedFilter();
+                self.showAdvansedFilter();
                 jq('#discEmptyScreenForFilter').show();
             }
         }
     };
 
     var onGetDiscussions = function (params, discussions) {
-        ASC.Projects.Common.clearTables();
+        self.clearTables();
         filterDiscCount = params.__total != undefined ? params.__total : 0;
-        ASC.Projects.Common.updatePageNavigator(ASC.Projects.Discussions, filterDiscCount);
+        self.updatePageNavigator(filterDiscCount);
 
-        LoadingBanner.hideLoading();
+        self.hideLoader();
+
         discussionsList.empty();
 
         var discussionCount = discussions.length;
@@ -340,12 +368,14 @@ ASC.Projects.Discussions = (function() {
             authorId: discussion.createdBy.id,
             authorName: discussion.createdBy.displayName,
             authorPost: discussion.createdBy.title,
+            status: discussion.status,
             projectId: prjId,
             text: discussion.text,
             hasPreview: discussion.text.search('class="asccut"') > 0,
             commentsCount: discussion.commentsCount,
             commentsUrl: getCommentsUrl(prjId, discussionId),
-            writeCommentUrl: getWriteCommentUrl(prjId, discussionId)
+            writeCommentUrl: getWriteCommentUrl(prjId, discussionId),
+            canComment: !window.Teamlab.profile.isOutsider
         };
         if (!currentProjectId) {
             template.projectTitle = discussion.projectTitle;
@@ -376,14 +406,14 @@ ASC.Projects.Discussions = (function() {
         discussionsList.unbind();
     };
 
-    return {
+    return jq.extend({
         init: init,
         setCurrentFilter: setCurrentFilter,
         getData: getData,
         createAdvansedFilter: createAdvansedFilter,
         unbindListEvents: unbindListEvents,
         basePath: 'sortBy=create_on&sortOrder=descending'
-    };
+    }, ASC.Projects.Common);
 })();
 
 ASC.Projects.DiscussionDetails = (function () {
@@ -394,16 +424,16 @@ ASC.Projects.DiscussionDetails = (function () {
     var participantsCount;
     var isCommentEdit = false;
     var subscribeButton = jq('#changeSubscribeButton');
-
+    var status = jq("#discussionStatus").val();
+    
     var init = function () {
         currentUserId = Teamlab.profile.id;
-        participantsCount = jq("#discussionParticipantsTable .discussionParticipant[id!=currentLink]").length;
         privateFlag = jq("#discussionParticipantsContainer").attr("data-private") === "True" ? true : false;
 
-        ASC.Projects.Common.bind(ASC.Projects.Common.events.loadTeam, function () {
-            projectTeam = ASC.Projects.Master.Team;
-        });
-
+        projectTeam = ASC.Projects.Master.Team;
+        
+        Teamlab.getSubscribesToPrjDiscussion({}, discussionId, { success: onGetPrjSubscribers });
+        
         fileContainer = jq("#discussionFilesContainer");
         if (fileContainer.length && window.Attachments) {
             initAttachmentsControl();
@@ -415,9 +445,6 @@ ASC.Projects.DiscussionDetails = (function () {
 
         var commentsCount = jq("#mainContainer div[id^=container_] div[id^=comment_] table").length;
 
-        if (participantsCount > 0) {
-            jq("#switcherDiscussionParticipants").show();
-        }
         jq("#add_comment_btn").wrap("<span class='addcomment-button icon-link plus'></span>");
         if (commentsCount > 0) {
             jq("#hideCommentsButton").show();
@@ -433,51 +460,57 @@ ASC.Projects.DiscussionDetails = (function () {
 
         var hash = ASC.Controls.AnchorController.getAnchor();
         if (hash == "addcomment" && CommentsManagerObj) {
-            ASC.Projects.Common.showCommentBox();
+            ckeditorConnector.onReady(CommentsManagerObj.AddNewComment);
         }
 
-        jq("#manageParticipantsButton, .manage-participants-button .dottedLink").click(function () {
-            jq("#discussionActions").hide();
-            jq(".project-title .menu-small").removeClass("active");
-            jq("#discussionParticipantsTable span.userLink").each(function () {
-                var userId = jq(this).closest("tr").not(".hidden").attr("guid");
-                discussionParticipantsSelector.SelectUser(userId);
-            });
+        if (status == 1) {
+            jq("#manageParticipantsSelector").hide();
+        }
 
-            discussionParticipantsSelector.IsFirstVisit = true;
-            discussionParticipantsSelector.ShowDialog();
+        var participantIds = [];
+        jq("#discussionParticipantsTable .items-display-list_i").each(function () {
+            var userId = jq(this).not(".hidden").attr("guid");
+            participantIds.push(userId);
         });
 
-        if (window.discussionParticipantsSelector) {
-            discussionParticipantsSelector.OnOkButtonClick = function () {
-                var participants = [];
-                var participantsIds = [];
+        jq("#manageParticipantsSelector").useradvancedSelector({
+            showGroups: true,
+            itemsSelectedIds: participantIds
 
-                var users = discussionParticipantsSelector.GetSelectedUsers();
+        }).on("additionalClickEvent" , function () {
+            jq("#discussionActions").hide();
+            jq(".project-title .menu-small").removeClass("active");
 
-                for (var i = 0; i < users.length; i++) {
-                    var userId = users[i].ID;
-                    var userName = users[i].Name;
-                    var userDepartment = users[i].Group.Name;
-                    var userTitle = users[i].Title;
+        }).on("showList", function (event, users) {
+            var participants = [];
+            var participantsIds = [];
 
-                    participants.push({ id: userId, displayName: userName, department: userDepartment, title: userTitle, descriptionFlag: true });
-                    participantsIds.push(userId);
-                }
+            for (var i = 0; i < users.length; i++) {
+                var userId = users[i].id,
+                 userName = users[i].title,
+                 userDepartments = [];
 
-                var data = {};
-                data.projectId = jq.getURLParam("prjID");
-                data.participants = participantsIds.join(",");
-                data.notify = false;
-
-                Teamlab.updatePrjDiscussion({ participants: participants }, discussionId, data, {
-                    before: function () { LoadingBanner.displayLoading(); },
-                    success: onChangeDiscussionParticipants,
-                    error: onDiscussionError,
-                    after: function () { LoadingBanner.hideLoading(); }
+                users[i].groups.forEach(function (el) {
+                    userDepartments.push(el.name);
                 });
-            };
-        }
+
+                participants.push({ id: userId, displayName: userName, descriptionFlag: true });
+                participantsIds.push(userId);
+            }
+
+            var data = {};
+            data.projectId = jq.getURLParam("prjID");
+            data.participants = participantsIds.join();
+            data.notify = false;
+
+            Teamlab.updatePrjDiscussion({ participants: participants }, discussionId, data, {
+                before: function () { LoadingBanner.displayLoading(); },
+                success: onChangeDiscussionParticipants,
+                error: onDiscussionError,
+                after: function () { LoadingBanner.hideLoading(); }
+            });
+        });
+        
         subscribeButton.click(function () {
             Teamlab.subscribeToPrjDiscussion({}, discussionId, { success: onChangeSubscribe, error: onDiscussionError });
         });
@@ -497,7 +530,7 @@ ASC.Projects.DiscussionDetails = (function () {
             });
         });
 
-        jq("#discussionParticipantsTable").on("mouseenter", ".discussionParticipant.gray", function () {
+        jq("#discussionParticipantsTable").on("mouseenter", ".items-display-list_i.gray", function () {
             jq(this).helper({
                 BlockHelperID: "hintSubscribersPrivateProject",
                 addLeft: 45,
@@ -505,7 +538,7 @@ ASC.Projects.DiscussionDetails = (function () {
             });
         });
 
-        jq("#discussionParticipantsTable").on("mouseleave", ".discussionParticipant.gray", function () {
+        jq("#discussionParticipantsTable").on("mouseleave", ".items-display-list_i.gray", function () {
             jq("#hintSubscribersPrivateProject").hide();
         });
 
@@ -517,7 +550,7 @@ ASC.Projects.DiscussionDetails = (function () {
         jq("#deleteDiscussionButton").click(function () {
             jq("#discussionActions").hide();
             jq(".project-title .menu-small").removeClass("active");
-            showQuestionWindow();
+            StudioBlockUIManager.blockUI(jq("#questionWindow"), 400, 400, 0, "absolute");
         });
 
         jq("#questionWindow .remove").bind("click", function () {
@@ -532,24 +565,42 @@ ASC.Projects.DiscussionDetails = (function () {
         jq(document).on("click", "#btnCancel, #cancel_comment_btn", function () {
             isCommentEdit = false;
         });
+        
         jq(document).on("click", "a[id^=edit_]", function () {
             isCommentEdit = true;
         });
+        
         jq("#btnAddComment").click(function () {
             if (!isCommentEdit) {
-                var text = jq("iframe[id^=CommentsFckEditor]").contents().find("iframe").contents().find("#fckbodycontent").text();
-                if (jq.trim(text) != "") {
-                    commentsCount = jq("#mainContainer div[id^=container_] div[id^=comment_] table").length;
-                    updateTabTitle("comments", commentsCount + 1);
-                    jq("#hideCommentsButton").show();
-                    jq("#commentsContainer").css("marginTop", "15px");
-                }
+                commentsCount = jq("#mainContainer div[id^=container_] div[id^=comment_] table").length;
+                updateTabTitle("comments", commentsCount + 1);
+                jq("#hideCommentsButton").show();
+                jq("#commentsContainer").css("marginTop", "15px");
             } else {
                 isCommentEdit = false;
             }
         });
-    };
 
+        jq("#changeStatus").click(function () {
+            Teamlab.updatePrjDiscussionStatus({}, discussionId, { status: jq(this).attr("updateStatus") }, {
+                 before: LoadingBanner.displayLoading,
+                 success: onUpdateDiscussion,
+                 after: LoadingBanner.hideLoading
+            });
+        });
+    };
+    
+    var onGetPrjSubscribers = function (params, subscribers) {        
+        subscribers.forEach(function (item) { item.descriptionFlag = true; });
+        jq("#manageParticipantsSelector").useradvancedSelector("select", subscribers.map(function (item) { return item.id; }));
+        showDiscussionParticipants(subscribers);
+        participantsCount = subscribers.length;
+        if (participantsCount > 0) {
+            jq("#switcherDiscussionParticipants").show();
+        }
+        updateTabTitle("participants", participantsCount);
+    };
+    
     var initAttachmentsControl = function () {
 
         projectFolderId = parseInt(jq("#discussionFilesContainer").attr("data-projectfolderid"));
@@ -619,11 +670,11 @@ ASC.Projects.DiscussionDetails = (function () {
     };
 
     var onChangeDiscussionParticipants = function (params, discussion) {
-        jq("#discussionParticipantsContainer .discussionParticipant").not(".hidden").remove();
+        jq("#discussionParticipantsContainer .items-display-list_i").not(".hidden").remove();
 
         showDiscussionParticipants(params.participants);
 
-        participantsCount = jq("#discussionParticipantsTable .discussionParticipant").not(".hidden").length;
+        participantsCount = jq("#discussionParticipantsTable .items-display-list_i").not(".hidden").length;
         updateTabTitle("participants", participantsCount);
         if (participantsCount == 0) {
             jq(".manage-participants-button").show();
@@ -666,7 +717,11 @@ ASC.Projects.DiscussionDetails = (function () {
                         addedFlag = true;
                     }
                 }
-                if (!addedFlag) notSeePartisipant.push(participants[i]);
+                if (!addedFlag) {
+                    participants[i].hidden = true;
+                    notSeePartisipant.push(participants[i]);
+                }
+                
             }
         } else {
             newListParticipants = participants;
@@ -689,34 +744,32 @@ ASC.Projects.DiscussionDetails = (function () {
             currentLink.addClass('hidden');
             subscribeButton.attr('subscribed', '0');
             subscribeButton.removeClass('subscribed').addClass('unsubscribed');
-            if (window.discussionParticipantsSelector) {
-                discussionParticipantsSelector.DisableUser(currentUserId);
-            }
+            jq("#manageParticipantsSelector").useradvancedSelector("disable", [currentUserId]);
+
         } else {
             currentLink.show();
             currentLink.removeClass("hidden");
             subscribeButton.attr("subscribed", "1");
             subscribeButton.removeClass('unsubscribed').addClass('subscribed');
-            if (window.discussionParticipantsSelector) {
-                discussionParticipantsSelector.SelectUser(currentUserId);
-            }
+            jq("#manageParticipantsSelector").useradvancedSelector("select", [currentUserId]);
+
         }
-        participantsCount = jq("#discussionParticipantsTable .discussionParticipant").not(".hidden").length;
+        participantsCount = jq("#discussionParticipantsTable .items-display-list_i").not(".hidden").length;
         updateTabTitle("participants", participantsCount);
     };
 
-    var updateTabTitle = function (tabTitle, count) {
+    var updateTabTitle = function(tabTitle, count) {
         var container;
         switch (tabTitle) {
-            case "comments":
-                container = "discussionCommentsContainer";
-                break;
-            case "participants":
-                container = "discussionParticipantsContainer";
-                break;
-            case "files":
-                container = "discussionFilesContainer";
-                break;
+        case "comments":
+            container = "discussionCommentsContainer";
+            break;
+        case "participants":
+            container = "discussionParticipantsContainer";
+            break;
+        case "files":
+            container = "discussionFilesContainer";
+            break;
         }
         if (!container) return;
 
@@ -726,51 +779,13 @@ ASC.Projects.DiscussionDetails = (function () {
         var newTitle = oldTitle;
         if (ind > -1 && count == 0) {
             newTitle = oldTitle.slice(0, ind);
-        }
-        else if (ind > -1 && count != 0) {
+        } else if (ind > -1 && count != 0) {
             newTitle = oldTitle.slice(0, ind) + "(" + count + ")";
-        }
-        else {
+        } else {
             if (count > 0)
                 newTitle = oldTitle + " (" + count + ")";
         }
         tab.text(newTitle);
-    }
-
-    var showQuestionWindow = function () {
-        var margintop = jq(window).scrollTop();
-        margintop = margintop + "px";
-        jq.blockUI({
-            message: jq("#questionWindow"),
-            css: {
-                left: "50%",
-                top: "25%",
-                opacity: "1",
-                border: "none",
-                padding: "0px",
-                width: "400px",
-
-                cursor: "default",
-                textAlign: "left",
-                position: "absolute",
-                "margin-left": "-200px",
-                "margin-top": margintop,
-                "background-color": "White"
-            },
-            overlayCSS: {
-                backgroundColor: "#AAA",
-                cursor: "default",
-                opacity: "0.3"
-            },
-            focusInput: false,
-            baseZ: 666,
-
-            fadeIn: 0,
-            fadeOut: 0,
-
-            onBlock: function () {
-            }
-        });
     };
 
     var deleteDiscussion = function () {
@@ -785,8 +800,13 @@ ASC.Projects.DiscussionDetails = (function () {
         });
     };
 
+    var onUpdateDiscussion = function(params, data) {
+        location.reload();
+    };
+
     return {
-        init: init
+        init: init,
+        removeComment: removeComment
     };
 })(jQuery);
 
@@ -797,73 +817,68 @@ ASC.Projects.DiscussionAction = (function () {
     var newFilesToAttach = [];
     var filesFromProject = [];
     var projectTeam = [];
+    var discussionParticipants = [];
 
     var init = function () {
         currentUserId = Teamlab.profile.id;
         projectId = jq.getURLParam("prjID");
         id = jq.getURLParam("id");
 
-
-        ASC.Projects.Common.bind(ASC.Projects.Common.events.loadProjects, function () {
-            if (projectId) {
-                privateFlag = ASC.Projects.Master.Projects.some(function(item) { return item.id == projectId && item.isPrivate; });
-            } else {
-                initProjectsCombobox();
-            }
-        });
-
-        if (projectId)
-            ASC.Projects.Common.bind(ASC.Projects.Common.events.loadTeam, function () {
-                loadListTeamFlag = true;
-                if (jq.getURLParam("action") != "edit") {
-                    getTeam({}, projectId);
-                } else {
-                    projectTeam = ASC.Projects.Master.Team;
-                }
-            });
+        if (id)
+            Teamlab.getSubscribesToPrjDiscussion({}, id, { success: onGetPrjSubscribers });
 
         if (jq("#discussionFilesContainer").length)
             initAttachmentsControl();
 
         jq('[id$=discussionTitle]').focus();
 
-        discussionParticipantsSelector.OnOkButtonClick = function () {
-            jq('#discussionParticipantsContainer .discussionParticipant').remove();
+        var participantIds = [];
+        jq('#discussionParticipantsContainer .items-display-list_i').each(function () {
+            participantIds.push(jq(this).attr('guid'));
+        });
 
-            var participants = discussionParticipantsSelector.GetSelectedUsers();
-            var partisipantsTmpls = participants.map(function(item) {
-                return { id: item.ID, displayName: item.Name, department: item.Group.Name, title: item.Title, descriptionFlag: false };
+        jq("#manageParticipantsSelector").useradvancedSelector({
+            showGroups: true,
+            itemsSelectedIds: participantIds
+
+        }).on("showList", function (event, participants) {
+            jq('#discussionParticipantsContainer .items-display-list_i').remove();
+
+            var partisipantsTmpls = participants.map(function (item) {
+                var departemts = [];
+                item.groups.forEach(function (el) { departemts.push(el.name) });
+                return { id: item.id, displayName: item.title, department: departemts.join(), descriptionFlag: false, profileUrl: item.profileUrl };
             });
             showDiscussionParticipants(partisipantsTmpls);
-        };
+        });
 
-        jq('#discussionParticipantsContainer').on('click', ".discussionParticipant .delMember span", function () {
-            var userId = jq(this).closest('tr').attr('guid');
+        if (projectId) {
+            loadListTeamFlag = true;
+            if (jq.getURLParam("action") != "edit") {
+                getTeam({}, projectId);
+            } else {
+                projectTeam = ASC.Projects.Master.Team;
+            }
+            privateFlag = ASC.Projects.Master.Projects.some(function (item) { return item.id == projectId && item.isPrivate; });
+            jq(".mainPageContent").children(".loader-page").hide();
+        } else {
+            initProjectsCombobox();
+        }
+
+        jq('#discussionParticipantsContainer').on('click', ".items-display-list_i .reset-action", function () {
+            var userId = jq(this).closest('li').attr('guid');
             if (userId != currentUserId) {
-                jq(this).closest('tr').remove();
-                discussionParticipantsSelector.DisableUser(userId);
+                jq(this).closest('li').remove();
+                jq("#manageParticipantsSelector").useradvancedSelector("unselect", [userId]);
             }
         });
 
-        jq('#discussionParticipantsContainer .discussionParticipant').each(function () {
+        jq('#discussionParticipantsContainer .items-display-list_i').each(function () {
             var userId = jq(this).attr('guid');
             if (userId == currentUserId) {
-                jq(this).find('.delMember span').remove();
+                jq(this).find('.reset-action').remove();
             }
         });
-
-        jq('#addDiscussionParticipantButton span').click(function () {
-            discussionParticipantsSelector.ClearSelection();
-
-            jq('#discussionParticipantsContainer .discussionParticipant').each(function () {
-                var userId = jq(this).attr('guid');
-                discussionParticipantsSelector.SelectUser(userId);
-            });
-
-            discussionParticipantsSelector.IsFirstVisit = true;
-            discussionParticipantsSelector.ShowDialog();
-        });
-
 
         jq('#hideDiscussionPreviewButton').click(function () {
             jq('#discussionPreviewContainer').hide();
@@ -876,6 +891,7 @@ ASC.Projects.DiscussionAction = (function () {
         });
 
         jq('#discussionPreviewButton').click(function () {
+            if (jq(this).hasClass("disable")) return;
             AjaxPro.onLoading = function (b) {
                 if (b) {
                     LoadingBanner.showLoaderBtn("#discussionActionPage");
@@ -886,7 +902,7 @@ ASC.Projects.DiscussionAction = (function () {
 
             var takeThis = this;
 
-            AjaxPro.DiscussionAction.GetDiscussionPreview(CKEDITOR.instances.ckEditor.getData(), function (result) {
+            AjaxPro.DiscussionAction.GetDiscussionPreview(ASC.Projects.Common.ckEditor.getData(), function (result) {
                 var discussion =
                     {
                         title: jq('#discussionTitleContainer input').val(),
@@ -905,6 +921,7 @@ ASC.Projects.DiscussionAction = (function () {
         });
 
         jq('#discussionCancelButton').click(function () {
+            if (jq(this).hasClass("disable")) return;
             var projectId = jq.getURLParam('prjID');
             window.onbeforeunload = null;
             if (!!window.history) {
@@ -916,13 +933,14 @@ ASC.Projects.DiscussionAction = (function () {
         });
 
         jq('#discussionActionButton').click(function () {
+            if (jq(this).hasClass("disable")) return;
             jq('#discussionProjectContainer').removeClass('requiredFieldError');
             jq('#discussionTitleContainer').removeClass('requiredFieldError');
             jq('#discussionTextContainer').removeClass('requiredFieldError');
 
             var projectid = projectId ? projectId : jq('#discussionProjectSelect').attr("data-id");
             var title = jq.trim(jq('#discussionTitleContainer input').val());
-            var content = CKEDITOR.instances.ckEditor.getData();
+            var content = ASC.Projects.Common.ckEditor.getData();
 
             var isError = false;
             if (!projectid) {
@@ -964,10 +982,10 @@ ASC.Projects.DiscussionAction = (function () {
             }
 
             var participants = [];
-            jq('#discussionParticipantsContainer .discussionParticipant').each(function () {
+            jq('#discussionParticipantsContainer .items-display-list_i').each(function () {
                 participants.push(jq(this).attr('guid'));
             });
-            discussion.participants = participants.join(',');
+            discussion.participants = participants.join();
 
             lockDiscussionActionPageElements();
             if (discussionId == -1) {
@@ -981,22 +999,35 @@ ASC.Projects.DiscussionAction = (function () {
         jq.switcherAction("#switcherParticipantsButton", "#discussionParticipantsContainer");
         jq.switcherAction("#switcherFilesButton", "#discussionFilesContainer");
 
-        jq("#discussionParticipants").on("mouseenter", ".discussionParticipant.gray", function () {
+        jq("#discussionParticipants").on("mouseenter", ".items-display-list_i.gray", function () {
             jq(this).helper({
                 BlockHelperID: "hintSubscribersPrivateProject",
                 addLeft: 45,
                 addTop: 12
             });
         });
-        jq("#discussionParticipants").on("mouseleave", ".discussionParticipant.gray", function () {
+        jq("#discussionParticipants").on("mouseleave", ".items-display-list_i.gray", function () {
             jq("#hintSubscribersPrivateProject").hide();
         });
-        jq.confirmBeforeUnload();
+        jq.confirmBeforeUnload(confirmBeforeUnloadCheck);
+    };
+
+    var confirmBeforeUnloadCheck = function () {
+        return (jq('#discussionProjectSelect').length && jq('#discussionProjectSelect').attr("data-id").length) ||
+            jq("[id$=discussionTitle]").val().length ||
+            ASC.Projects.Common.ckEditor.getData().length ||
+            discussionParticipants.length;
+    };
+
+    var onGetPrjSubscribers = function (params, subscribers) {
+        subscribers.forEach(function (item) { item.descriptionFlag = false; });
+        jq("#manageParticipantsSelector").useradvancedSelector("select", subscribers.map(function (item) {return item.id;}));
+        showDiscussionParticipants(subscribers);
     };
 
     var discussionProjectChange = function(item) {
         jq('#discussionProjectContainer').removeClass('requiredFieldError');
-        jq('#discussionParticipantsContainer .discussionParticipant').remove();
+        jq('#discussionParticipantsContainer .items-display-list_i').remove();
         privateFlag = item.isPrivate;
 
         jq('#errorAllParticipantsProject').hide();
@@ -1013,15 +1044,12 @@ ASC.Projects.DiscussionAction = (function () {
         var $discussionAdvancedSelector = jq("#discussionProjectSelect");
         $discussionAdvancedSelector.projectadvancedSelector(
             {
-                itemsChoose: allprojects,  // if empty - to use default list         
-                canadd: false,       // enable to create the new item        
-                showGroups: false, // show the group list
-                onechosen: true,   // list without checkbox, you can choose only one item 
-                showSearch: true
+                itemsChoose: allprojects,  
+                onechosen: true
             }
         );
         
-        $discussionAdvancedSelector.on("showList", function (event, item) {          
+        $discussionAdvancedSelector.on("showList", function (event, item) {
             jq("#discussionProjectSelect").attr("data-id", item.id).text(item.title).attr("title", item.title);
             discussionProjectChange(item);
         });
@@ -1079,6 +1107,7 @@ ASC.Projects.DiscussionAction = (function () {
     };
 
     var showDiscussionParticipants = function (participants) {
+        discussionParticipants = participants;
         var newListParticipants = [];
         var notSeePartisipant = [];
         if (privateFlag) {
@@ -1090,7 +1119,10 @@ ASC.Projects.DiscussionAction = (function () {
                         addedFlag = true;
                     }
                 }
-                if (!addedFlag) notSeePartisipant.push(participants[i]);
+                if (!addedFlag) {
+                    participants[i].hidden = true;
+                    notSeePartisipant.push(participants[i]);
+                }
             }
         } else {
             newListParticipants = participants;
@@ -1205,7 +1237,7 @@ ASC.Projects.DiscussionAction = (function () {
         var newParticipants = [];
         if (count <= 0) return;
         
-        var existParticipants = jq('#discussionParticipantsContainer .discussionParticipant').length ? jq('#discussionParticipantsContainer .discussionParticipant') : [];
+        var existParticipants = jq('#discussionParticipantsContainer .items-display-list_i').length ? jq('#discussionParticipantsContainer .items-display-list_i') : [];
 
         for (var i = 0; i < count; i++) {
             var existFlag = existParticipants.some(function(item) { return item.attr('guid') == team[i].id; });
@@ -1216,7 +1248,7 @@ ASC.Projects.DiscussionAction = (function () {
             }
         }
         
-        showDiscussionParticipants(newParticipants);
+        onGetPrjSubscribers(null, newParticipants);
         
     };
 
@@ -1230,8 +1262,17 @@ ASC.Projects.DiscussionAction = (function () {
         return shortDate;
     };
 
+    var showHidePreview = function() {
+        if (this.getData() == "") {
+            jq("#discussionPreviewButton").addClass("disable");
+        } else {
+            jq("#discussionPreviewButton").removeClass("disable");
+        }
+    };
+
     return {
         init: init,
-        attachFiles: attachFiles
+        attachFiles: attachFiles,
+        showHidePreview: showHidePreview
     };
 })();

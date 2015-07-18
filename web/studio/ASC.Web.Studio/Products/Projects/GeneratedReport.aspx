@@ -1,5 +1,4 @@
-﻿<%@ Assembly Name="ASC.Projects.Core" %>
-<%@ Assembly Name="ASC.Web.Projects" %>
+﻿<%@ Assembly Name="ASC.Web.Projects" %>
 <%@ Assembly Name="ASC.Web.Studio" %>
 <%@ Page Language="C#" AutoEventWireup="true" MasterPageFile="~/Products/Projects/Masters/BasicTemplate.Master" CodeBehind="GeneratedReport.aspx.cs" Inherits="ASC.Web.Projects.GeneratedReport" %>
 <%@ MasterType TypeName="ASC.Web.Projects.Masters.BasicTemplate" %>
@@ -29,10 +28,12 @@
                     </Header>
                     <Body>
                         <p><%= ReportResource.ExportToCSVNote%></p>
-                        <div class="middle-button-container clearFix">
+                        <div class="neverShowContainer clearFix">
                             <input id="neverShowPopup" type="checkbox" />
                             <label for="neverShowPopup"><%=ReportResource.ExportToCSVCheckboxLabel %></label>
-                            <a id="okExportButton" class="button blue float-right"><%= ProjectResource.OkButton%></a>
+                        </div>
+                        <div class="middle-button-container">
+                            <a id="okExportButton" class="button blue middle"><%= ProjectResource.OkButton%></a>
                         </div>
                     </Body>
                     </sc:Container>

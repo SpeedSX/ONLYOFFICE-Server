@@ -1,16 +1,13 @@
 ﻿<%@ Assembly Name="ASC.Web.Community" %>
 <%@ Assembly Name="ASC.Core.Common" %>
 <%@ Control Language="C#" AutoEventWireup="true" CodeBehind="NavigationSidePanel.ascx.cs" Inherits="ASC.Web.Community.Controls.NavigationSidePanel" %>
-<%@ Import Namespace="System.Globalization" %>
 <%@ Import Namespace="ASC.Web.Community.Resources" %>
-<%@ Import Namespace="Resources" %>
 
 
 <div class="page-menu">
     <% if (!IsVisitor) %>
 <% { %>
 <div id="createNewButton" class="studio-action-panel">
-        <div class="corner-top left"></div>
         <ul class="dropdown-content">
             <% if (IsBlogsAvailable) %>
             <% { %>
@@ -110,7 +107,6 @@
     </div>
     
     <div id="otherActions" class="studio-action-panel display-none">
-        <div class="corner-top right"></div>
         <ul class="dropdown-content"></ul>
     </div>
 <% } %>
@@ -263,7 +259,8 @@
                 </li>
             <%} %>
 
-            <% if (IsAdmin) %>
+            <asp:PlaceHolder ID="InviteUserHolder" runat="server"></asp:PlaceHolder>
+            <% if (IsAdmin && (IsForumsAvailable || IsFullAdministrator)) %>
             <% { %>
             <li id="menuSettings" class="menu-item add-block sub-list<%if(IsInSettings){%> currentCategory<%}%>">
                 <div class="category-wrapper">
@@ -282,17 +279,21 @@
                         </a>
                     </li>
                     <% } %>
+                    <% if (IsFullAdministrator) %>
+                    <% { %>
                     <li id="menuAccessRights" class="menu-sub-item">
                         <a class="menu-item-label outer-text text-overflow" href="<%=VirtualPathUtility.ToAbsolute("~/management.aspx")+ "?type=" + (int)ASC.Web.Studio.Utility.ManagementType.AccessRights +"#community"%>">
                             <%= CommunityResource.AccessRightsSettings%>
                         </a>
                     </li>
+                    <% } %>
                 </ul>
             </li>
             <% } %>
             
             <asp:PlaceHolder ID="HelpHolder" runat="server"></asp:PlaceHolder>
             <asp:PlaceHolder ID="SupportHolder" runat="server"></asp:PlaceHolder>
-           
+            <asp:PlaceHolder ID="UserForumHolder" runat="server"></asp:PlaceHolder>
+            <asp:PlaceHolder ID="VideoGuides" runat="server"></asp:PlaceHolder>
         </ul>
     </div>

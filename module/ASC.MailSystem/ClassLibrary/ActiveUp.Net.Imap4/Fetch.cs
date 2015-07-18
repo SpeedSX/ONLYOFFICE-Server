@@ -16,6 +16,9 @@
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA 
 
 using System;
+using System.Globalization;
+using System.Linq;
+using System.Text;
 using ActiveUp.Net.Mail;
 
 namespace ActiveUp.Net.Mail
@@ -451,11 +454,17 @@ namespace ActiveUp.Net.Mail
 
         public FlagCollection UidFlags(int uid)
         {
-            this.ParentMailbox.SourceClient.SelectMailbox(this.ParentMailbox.Name);
-            ActiveUp.Net.Mail.FlagCollection flags = new ActiveUp.Net.Mail.FlagCollection();
-            string response = this.ParentMailbox.SourceClient.Command("uid fetch " + uid.ToString() + " flags", getFetchOptions());
-            string flags_string = System.Text.RegularExpressions.Regex.Split(response.ToLower(),"flags ")[1].TrimStart('(').Split(')')[0];
-            foreach(string str in flags_string.Split(' ')) if(str.StartsWith("\\")) flags.Add(str.Trim(new char[] {' ','\\',')','('}));
+            //this.ParentMailbox.SourceClient.SelectMailbox(this.ParentMailbox.Name);
+            var flags = new FlagCollection();
+
+            var response = ParentMailbox.SourceClient.Command("uid fetch " + uid.ToString(CultureInfo.InvariantCulture) + " flags",
+                                                                   getFetchOptions());
+            var flagsString =
+                System.Text.RegularExpressions.Regex.Split(response.ToLower(), "flags ")[1].TrimStart('(').Split(')')[0];
+            
+            foreach (var str in flagsString.Split(' ').Where(str => str.StartsWith("\\")))
+                flags.Add(str.Trim(new[] {' ', '\\', ')', '('}));
+
             return flags;
         }
 
@@ -1348,7 +1357,37 @@ namespace ActiveUp.Net.Mail
         public Message UidMessageObjectPeek(int uid)
         {
             var msg = UidMessageStringPeek(uid);
-            return Parser.ParseMessage(ref msg);
+
+            Message message;
+
+            try
+            {
+                message = Parser.ParseMessage(ref msg);
+            }
+            catch (Exception ex)
+            {
+                if (ex is ParsingException || ex is IndexOutOfRangeException)
+                {
+                    var header_string = UidHeaderString(uid);
+
+                    Header header;
+
+                    if (!Parser.TryParseDefectiveHeader(header_string, out header))
+                        throw;
+
+                    message = new Message(header);
+
+                    message.AddAttachmentFromString("original_message.eml", msg);
+
+                    message.OriginalData = Encoding.GetEncoding("iso-8859-1").GetBytes(msg);
+
+                    message.HasParseError = true;
+                }
+                else
+                    throw;
+            }
+
+            return message;
         }
 
         private delegate Message DelegateUidMessageObjectPeek(int uid);
@@ -1445,7 +1484,7 @@ namespace ActiveUp.Net.Mail
 
         public string UidMessageStringPeek(int uid)
         {
-            ParentMailbox.SourceClient.SelectMailbox(ParentMailbox.Name);
+            // ParentMailbox.SourceClient.SelectMailbox(ParentMailbox.Name);
             ParentMailbox.SourceClient.OnMessageRetrieving(new MessageRetrievingEventArgs(uid));
             var response = ParentMailbox.SourceClient.Command("uid fetch " + uid + " BODY.PEEK[]");
             var message = GetMessageFromImapFetchResponce(response);

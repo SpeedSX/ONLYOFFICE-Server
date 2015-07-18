@@ -1,31 +1,32 @@
 /*
-(c) Copyright Ascensio System SIA 2010-2014
-
-This program is a free software product.
-You can redistribute it and/or modify it under the terms 
-of the GNU Affero General Public License (AGPL) version 3 as published by the Free Software
-Foundation. In accordance with Section 7(a) of the GNU AGPL its Section 15 shall be amended
-to the effect that Ascensio System SIA expressly excludes the warranty of non-infringement of 
-any third-party rights.
-
-This program is distributed WITHOUT ANY WARRANTY; without even the implied warranty 
-of MERCHANTABILITY or FITNESS FOR A PARTICULAR  PURPOSE. For details, see 
-the GNU AGPL at: http://www.gnu.org/licenses/agpl-3.0.html
-
-You can contact Ascensio System SIA at Lubanas st. 125a-25, Riga, Latvia, EU, LV-1021.
-
-The  interactive user interfaces in modified source and object code versions of the Program must 
-display Appropriate Legal Notices, as required under Section 5 of the GNU AGPL version 3.
- 
-Pursuant to Section 7(b) of the License you must retain the original Product logo when 
-distributing the program. Pursuant to Section 7(e) we decline to grant you any rights under 
-trademark law for use of our trademarks.
- 
-All the Product's GUI elements, including illustrations and icon sets, as well as technical writing
-content are licensed under the terms of the Creative Commons Attribution-ShareAlike 4.0
-International. See the License terms at http://creativecommons.org/licenses/by-sa/4.0/legalcode
+ *
+ * (c) Copyright Ascensio System Limited 2010-2015
+ *
+ * This program is freeware. You can redistribute it and/or modify it under the terms of the GNU 
+ * General Public License (GPL) version 3 as published by the Free Software Foundation (https://www.gnu.org/copyleft/gpl.html). 
+ * In accordance with Section 7(a) of the GNU GPL its Section 15 shall be amended to the effect that 
+ * Ascensio System SIA expressly excludes the warranty of non-infringement of any third-party rights.
+ *
+ * THIS PROGRAM IS DISTRIBUTED WITHOUT ANY WARRANTY; WITHOUT EVEN THE IMPLIED WARRANTY OF MERCHANTABILITY OR
+ * FITNESS FOR A PARTICULAR PURPOSE. For more details, see GNU GPL at https://www.gnu.org/copyleft/gpl.html
+ *
+ * You can contact Ascensio System SIA by email at sales@onlyoffice.com
+ *
+ * The interactive user interfaces in modified source and object code versions of ONLYOFFICE must display 
+ * Appropriate Legal Notices, as required under Section 5 of the GNU GPL version 3.
+ *
+ * Pursuant to Section 7 § 3(b) of the GNU GPL you must retain the original ONLYOFFICE logo which contains 
+ * relevant author attributions when distributing the software. If the display of the logo in its graphic 
+ * form is not reasonably feasible for technical reasons, you must include the words "Powered by ONLYOFFICE" 
+ * in every copy of the program you distribute. 
+ * Pursuant to Section 7 § 3(e) we decline to grant you any rights under trademark law for use of our trademarks.
+ *
 */
 
+
+using ASC.Common.Data;
+using ASC.Common.Data.Sql;
+using ASC.Common.Data.Sql.Expressions;
 using ASC.Common.Security.Authentication;
 using ASC.Common.Utils;
 using ASC.Core;
@@ -48,6 +49,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Threading;
 using System.Web;
 using System.Web.Configuration;
@@ -82,19 +84,31 @@ namespace ASC.Web.Studio.Core.Notify
 
         public void RegisterSendMethod()
         {
-            client.RegisterSendMethod(SendMsgWhatsNew, "0 0 * ? * *"); // every hour
-            client.RegisterSendMethod(SendTariffWarnings, "0 0 5 ? * *"); // 5am every day
+            if (WebConfigurationManager.AppSettings["core.notify.tariff"] != "false")
+            {
+                client.RegisterSendMethod(SendTariffWarnings, "0 0 5 ? * *"); // 5am every day
+            }
+            if (CoreContext.Configuration.Personal)
+            {
+                client.RegisterSendMethod(SendLettersPersonal, "0 0 5 ? * *");
+            }
+            else
+            {
+                client.RegisterSendMethod(SendMsgWhatsNew, "0 0 * ? * *"); // every hour
+            }
         }
 
 
         public void SendMsgWhatsNew(DateTime scheduleDate)
         {
+            var log = LogManager.GetLogger("ASC.Notify.WhatsNew");
+
             if (WebItemManager.Instance.GetItemsAll<IProduct>().Count == 0)
             {
+                log.Info("No products. Return from function");
                 return;
             }
 
-            var log = LogManager.GetLogger("ASC.Notify.WhatsNew");
             log.Info("Start send whats new.");
 
             var products = WebItemManager.Instance.GetItemsAll().ToDictionary(p => p.GetSysName());
@@ -106,7 +120,7 @@ namespace ASC.Web.Studio.Core.Notify
                     var tenant = CoreContext.TenantManager.GetTenant(tenantid);
                     if (tenant == null ||
                         tenant.Status != TenantStatus.Active ||
-                        !TimeToSendWhatsNew(TenantUtil.DateTimeFromUtc(tenant, scheduleDate)) ||
+                        !TimeToSendWhatsNew(TenantUtil.DateTimeFromUtc(tenant.TimeZone, scheduleDate)) ||
                         TariffState.NotPaid <= CoreContext.PaymentManager.GetTariff(tenantid).State)
                     {
                         continue;
@@ -133,36 +147,83 @@ namespace ASC.Web.Studio.Core.Notify
                             Max = 100,
                         });
 
-                        var activities = feeds
-                            .Select(f => f.ToFeedMin())
-                            .SelectMany(f =>
+                        var feedMinWrappers = feeds.ConvertAll(f => f.ToFeedMin());
+
+                        var feedMinGroupedWrappers = feedMinWrappers
+                            .Where(f =>
+                                (f.CreatedDate == DateTime.MaxValue || f.CreatedDate >= scheduleDate.Date.AddDays(-1)) && //'cause here may be old posts with new comments
+                                products.ContainsKey(f.Product) &&
+                                !f.Id.StartsWith("participant")
+                            )
+                            .GroupBy(f => products[f.Product]);
+
+                        var ProjectsProductName = products["projects"].Name; //from ASC.Feed.Aggregator.Modules.ModulesHelper.ProjectsProductName
+ 
+                        var activities = feedMinGroupedWrappers
+                            .Where(f => f.Key.Name != ProjectsProductName) //not for project product
+                            .ToDictionary(
+                            g => g.Key.Name,
+                            g => g.Select(f => new WhatsNewUserActivity
                             {
-                                if (f.Comments == null || !f.Comments.Any())
-                                {
-                                    return new[] { f };
-                                }
-                                var comment = f.Comments.Last().ToFeedMin();
-                                comment.Id = f.Id;
-                                comment.Product = f.Product;
-                                comment.ItemUrl = f.ItemUrl;
-                                if (f.Date < scheduleDate.Date.AddDays(-1)) 
-                                {
-                                    return new[] { comment };
-                                }
-                                return new[] { f, comment };
-                            })
-                            .Where(f => products.ContainsKey(f.Product) && !f.Id.StartsWith("participant"))
-                            .GroupBy(f => products[f.Product])
-                            .ToDictionary(g => g.Key.Name, g => g.Select(f => new WhatsNewUserActivity
-                            {
-                                Date = TenantUtil.DateTimeFromUtc(tenant, f.Date),
+                                Date = f.CreatedDate,
                                 UserName = f.Author != null && f.Author.UserInfo != null ? f.Author.UserInfo.DisplayUserName() : string.Empty,
                                 UserAbsoluteURL = f.Author != null && f.Author.UserInfo != null ? CommonLinkUtility.GetFullAbsolutePath(f.Author.UserInfo.GetUserProfilePageURL()) : string.Empty,
                                 Title = HtmlUtil.GetText(f.Title, 512),
                                 URL = CommonLinkUtility.GetFullAbsolutePath(f.ItemUrl),
-                                BreadCrumbs = GetBreadCrumbs(products, f),
+                                BreadCrumbs = new string[0],
+                                Action = getWhatsNewActionText(f)
                             }).ToList());
 
+
+                        var projectActivities = feedMinGroupedWrappers
+                            .Where(f => f.Key.Name == ProjectsProductName) // for project product
+                            .SelectMany(f => f);
+
+                        var projectActivitiesWithoutBreadCrumbs = projectActivities.Where(p => String.IsNullOrEmpty(p.ExtraLocation));
+
+                        var whatsNewUserActivityGroupByPrjs = new List<WhatsNewUserActivity>();
+
+                        foreach (var prawbc in projectActivitiesWithoutBreadCrumbs)
+                        {
+                            whatsNewUserActivityGroupByPrjs.Add(
+                                        new WhatsNewUserActivity
+                                        {
+                                            Date = prawbc.CreatedDate,
+                                            UserName = prawbc.Author != null && prawbc.Author.UserInfo != null ? prawbc.Author.UserInfo.DisplayUserName() : string.Empty,
+                                            UserAbsoluteURL = prawbc.Author != null && prawbc.Author.UserInfo != null ? CommonLinkUtility.GetFullAbsolutePath(prawbc.Author.UserInfo.GetUserProfilePageURL()) : string.Empty,
+                                            Title = HtmlUtil.GetText(prawbc.Title, 512),
+                                            URL = CommonLinkUtility.GetFullAbsolutePath(prawbc.ItemUrl),
+                                            BreadCrumbs = new string[0],
+                                            Action = getWhatsNewActionText(prawbc)
+                                        });
+                        }
+
+                        var groupByPrjs = projectActivities.Where(p => !String.IsNullOrEmpty(p.ExtraLocation)).GroupBy(f => f.ExtraLocation);
+                        foreach (var gr in groupByPrjs)
+                        {
+                            var grlist = gr.ToList();
+                            for (var i = 0; i < grlist.Count(); i++)
+                            {
+                                var ls = grlist[i];
+                                whatsNewUserActivityGroupByPrjs.Add(
+                                    new WhatsNewUserActivity
+                                    {
+                                        Date = ls.CreatedDate,
+                                        UserName = ls.Author != null && ls.Author.UserInfo != null ? ls.Author.UserInfo.DisplayUserName() : string.Empty,
+                                        UserAbsoluteURL = ls.Author != null && ls.Author.UserInfo != null ? CommonLinkUtility.GetFullAbsolutePath(ls.Author.UserInfo.GetUserProfilePageURL()) : string.Empty,
+                                        Title = HtmlUtil.GetText(ls.Title, 512),
+                                        URL = CommonLinkUtility.GetFullAbsolutePath(ls.ItemUrl),
+                                        BreadCrumbs = i == 0 ? new string[1]{gr.Key} : new string[0],
+                                        Action = getWhatsNewActionText(ls)
+                                    });
+                            }
+                        }
+
+                        if (whatsNewUserActivityGroupByPrjs.Count > 0)
+                        {
+                            activities.Add(ProjectsProductName, whatsNewUserActivityGroupByPrjs);
+                        }
+                           
                         if (0 < activities.Count)
                         {
                             log.InfoFormat("Send whats new to {0}", user.Email);
@@ -180,6 +241,49 @@ namespace ASC.Web.Studio.Core.Notify
                     log.Error(error);
                 }
             }
+        }
+
+        private string getWhatsNewActionText(FeedMin feed) {
+
+            if (feed.Module == ASC.Feed.Constants.BookmarksModule)
+                return WebstudioPatternResource.ActionCreateBookmark;
+            else if (feed.Module == ASC.Feed.Constants.BlogsModule)
+                return WebstudioPatternResource.ActionCreateBlog;
+            else if (feed.Module == ASC.Feed.Constants.ForumsModule)
+            {
+                if (feed.Item == "forumTopic")
+                    return WebstudioPatternResource.ActionCreateForum;
+                if (feed.Item == "forumPost")
+                    return WebstudioPatternResource.ActionCreateForumPost;
+                if (feed.Item == "forumPoll")
+                    return WebstudioPatternResource.ActionCreateForumPoll;
+            }
+            else if (feed.Module == ASC.Feed.Constants.EventsModule)
+                return WebstudioPatternResource.ActionCreateEvent;
+            else if (feed.Module == ASC.Feed.Constants.ProjectsModule)
+                return WebstudioPatternResource.ActionCreateProject;
+            else if (feed.Module == ASC.Feed.Constants.MilestonesModule)
+                return WebstudioPatternResource.ActionCreateMilestone;
+            else if (feed.Module == ASC.Feed.Constants.DiscussionsModule)
+                return WebstudioPatternResource.ActionCreateDiscussion;
+            else if (feed.Module == ASC.Feed.Constants.TasksModule)
+                return WebstudioPatternResource.ActionCreateTask;
+            else if (feed.Module == ASC.Feed.Constants.CommentsModule)
+                return WebstudioPatternResource.ActionCreateComment;
+            else if (feed.Module == ASC.Feed.Constants.CrmTasksModule)
+                return WebstudioPatternResource.ActionCreateTask;
+            else if (feed.Module == ASC.Feed.Constants.ContactsModule)
+                return WebstudioPatternResource.ActionCreateContact;
+            else if (feed.Module == ASC.Feed.Constants.DealsModule)
+                return WebstudioPatternResource.ActionCreateDeal;
+            else if (feed.Module == ASC.Feed.Constants.CasesModule)
+                return WebstudioPatternResource.ActionCreateCase;
+            else if (feed.Module == ASC.Feed.Constants.FilesModule)
+                return WebstudioPatternResource.ActionCreateFile;
+            else if (feed.Module == ASC.Feed.Constants.FoldersModule)
+                return WebstudioPatternResource.ActionCreateFolder;
+
+            return "";
         }
 
         private IList<string> GetBreadCrumbs(Dictionary<string, IWebItem> products, FeedMin f)
@@ -308,19 +412,32 @@ namespace ASC.Web.Studio.Core.Notify
 
         public void SendMsgToAdminFromNotAuthUser(string email, string message)
         {
-            client.SendNoticeAsync(Constants.ActionUserMessageToAdmin, null, null, new TagValue(Constants.TagBody, message), new TagValue(Constants.TagUserEmail, email));
+            client.SendNoticeAsync(Constants.ActionUserMessageToAdmin, null, null,
+                new TagValue(Constants.TagBody, message), new TagValue(Constants.TagUserEmail, email));
         }
 
         public void SendToAdminSmsCount(int balance)
         {
-            client.SendNoticeAsync(Constants.ActionSmsBalance, null, null, new TagValue(Constants.TagBody, balance));
+            client.SendNoticeAsync(Constants.ActionSmsBalance, null, null,
+                new TagValue(Constants.TagBody, balance));
+        }
+
+        public void SendToAdminVoipWarning(double balance)
+        {
+            client.SendNoticeAsync(Constants.ActionVoipWarning, null, null,
+                new TagValue(Constants.TagBody, balance));
+        }
+
+        public void SendToAdminVoipBlocked()
+        {
+            client.SendNoticeAsync(Constants.ActionVoipBlocked, null, null);
         }
 
         public void UserPasswordChange(UserInfo userInfo)
         {
             var hash = Hasher.Base64Hash(CoreContext.Authentication.GetUserPasswordHash(userInfo.ID));
             client.SendNoticeToAsync(
-                        Constants.ActionPasswordChange,
+                CoreContext.Configuration.Personal ? Constants.ActionPasswordChangePersonal : Constants.ActionPasswordChange,
                         null,
                         RecipientFromEmail(new[] { userInfo.Email }, false),
                         new[] { EMailSenderName },
@@ -328,7 +445,12 @@ namespace ASC.Web.Studio.Core.Notify
                         new TagValue(Constants.TagUserName, SecurityContext.IsAuthenticated ? DisplayUserSettings.GetFullUserName(SecurityContext.CurrentAccount.ID) : ((HttpContext.Current != null) ? HttpContext.Current.Request.UserHostAddress : null)),
                         new TagValue(Constants.TagInviteLink, CommonLinkUtility.GetConfirmationUrl(userInfo.Email, ConfirmType.PasswordChange, hash)),
                         new TagValue(Constants.TagBody, string.Empty),
-                        new TagValue("UserDisplayName", userInfo.DisplayUserName()));
+                        new TagValue(Constants.TagUserDisplayName, userInfo.DisplayUserName()),
+                        Constants.TagSignatureStart,
+                        Constants.TagSignatureEnd,
+                        new TagValue(CommonTags.WithPhoto, CoreContext.Configuration.Personal ? "personal" : ""),
+                        new TagValue(CommonTags.IsPromoLetter, CoreContext.Configuration.Personal ? "true" : "false"),
+                        Constants.UnsubscribeLink);
         }
 
         public void UserPasswordChanged(Guid userID, string password)
@@ -378,7 +500,7 @@ namespace ASC.Web.Studio.Core.Notify
         public void SendEmailChangeInstructions(UserInfo user, string email)
         {
             client.SendNoticeToAsync(
-                        Constants.ActionEmailChange,
+                CoreContext.Configuration.Personal ? Constants.ActionEmailChangePersonal : Constants.ActionEmailChange,
                         null,
                         RecipientFromEmail(new[] { email }, false),
                         new[] { EMailSenderName },
@@ -386,7 +508,13 @@ namespace ASC.Web.Studio.Core.Notify
                         new TagValue(Constants.TagUserName, SecurityContext.IsAuthenticated ? DisplayUserSettings.GetFullUserName(SecurityContext.CurrentAccount.ID) : ((HttpContext.Current != null) ? HttpContext.Current.Request.UserHostAddress : null)),
                         new TagValue(Constants.TagInviteLink, CommonLinkUtility.GetConfirmationUrl(email, ConfirmType.EmailChange)),
                         new TagValue(Constants.TagBody, string.Empty),
-                        new TagValue("UserDisplayName", string.Empty));
+                        new TagValue(Constants.TagUserDisplayName, string.Empty),
+                        Constants.TagSignatureStart,
+                        Constants.TagSignatureEnd,
+                        new TagValue(CommonTags.WithPhoto, CoreContext.Configuration.Personal ? "personal" : ""),
+                        new TagValue(CommonTags.IsPromoLetter, CoreContext.Configuration.Personal ? "true" : "false"),
+                        new TagValue(CommonTags.Culture, user.GetCulture().Name),
+                        Constants.UnsubscribeLink);
         }
 
         public void SendEmailActivationInstructions(UserInfo user, string email)
@@ -400,8 +528,10 @@ namespace ASC.Web.Studio.Core.Notify
                         new TagValue(Constants.TagUserName, SecurityContext.IsAuthenticated ? DisplayUserSettings.GetFullUserName(SecurityContext.CurrentAccount.ID) : ((HttpContext.Current != null) ? HttpContext.Current.Request.UserHostAddress : null)),
                         new TagValue(Constants.TagInviteLink, CommonLinkUtility.GetConfirmationUrl(email, ConfirmType.EmailActivation)),
                         new TagValue(Constants.TagBody, string.Empty),
-                        new TagValue("UserDisplayName", (user.DisplayUserName() ?? string.Empty).Trim()),
-                        new TagValue("WithPhoto", "photo"));
+                        new TagValue(Constants.TagUserDisplayName, (user.DisplayUserName() ?? string.Empty).Trim()),
+                        new TagValue(CommonTags.WithPhoto, CoreContext.Configuration.Personal ? "personal" : "links"),
+                        new TagValue(CommonTags.IsPromoLetter, CoreContext.Configuration.Personal ? "true" : "false"),
+                        Constants.UnsubscribeLink);
         }
 
         public void SendMsgMobilePhoneChange(UserInfo userInfo)
@@ -413,7 +543,7 @@ namespace ASC.Web.Studio.Core.Notify
                 new[] { EMailSenderName },
                 null,
                 new TagValue(Constants.TagInviteLink, CommonLinkUtility.GetConfirmationUrl(userInfo.Email.ToLower(), ConfirmType.PhoneActivation)),
-                new TagValue("UserDisplayName", userInfo.DisplayUserName()));
+                new TagValue(Constants.TagUserDisplayName, userInfo.DisplayUserName()));
         }
 
 
@@ -457,8 +587,8 @@ namespace ASC.Web.Studio.Core.Notify
                         Constants.TagTableItem(2),
                         Constants.TagTableItem(3),
                         Constants.TagTableBottom(),
-                        new TagValue("WithPhoto", "photo"),
-                        new TagValue("UserDisplayName", (user.DisplayUserName() ?? "").Trim()),
+                        new TagValue(CommonTags.WithPhoto, "links"),
+                        new TagValue(Constants.TagUserDisplayName, (user.DisplayUserName() ?? "").Trim()),
                         CreateSendFromTag());
         }
 
@@ -467,15 +597,28 @@ namespace ASC.Web.Studio.Core.Notify
             if (CoreContext.UserManager.UserExists(newUserInfo.ID))
             {
                 client.SendNoticeToAsync(
-                            Constants.ActionYouAddedAfterInvite,
-                            null,
-                            RecipientFromEmail(new[] { newUserInfo.Email }, false),
-                            new[] { EMailSenderName },
-                            null,
-                            new TagValue(Constants.TagUserName, newUserInfo.DisplayUserName()),
-                            new TagValue(Constants.TagUserEmail, newUserInfo.Email),
-                            new TagValue(Constants.TagMyStaffLink, GetMyStaffLink()),
-                            new TagValue(Constants.TagPassword, password));
+                    CoreContext.Configuration.Personal ? Constants.ActionAfterRegistrationPersonal1 : Constants.ActionYouAddedAfterInvite,
+                    null,
+                    RecipientFromEmail(new[] { newUserInfo.Email }, false),
+                    new[] { EMailSenderName },
+                    null,
+                    new TagValue(Constants.TagUserName, newUserInfo.DisplayUserName()),
+                    new TagValue(Constants.TagUserEmail, newUserInfo.Email),
+                    new TagValue(Constants.TagMyStaffLink, GetMyStaffLink()),
+                    new TagValue(Constants.TagPassword, password),
+                    Constants.TagMarkerStart,
+                    Constants.TagMarkerEnd,
+                    Constants.TagFrameStart,
+                    Constants.TagFrameEnd,
+                    Constants.TagHeaderStart,
+                    Constants.TagHeaderEnd,
+                    Constants.TagStrongStart,
+                    Constants.TagStrongEnd,
+                    Constants.TagSignatureStart,
+                    Constants.TagSignatureEnd,
+                    new TagValue(CommonTags.WithPhoto, CoreContext.Configuration.Personal ? "personal" : ""),
+                    new TagValue(CommonTags.IsPromoLetter, CoreContext.Configuration.Personal ? "true" : "false"),
+                    Constants.UnsubscribeLink);
             }
         }
 
@@ -504,20 +647,31 @@ namespace ASC.Web.Studio.Core.Notify
             }
 
             client.SendNoticeToAsync(
-                CoreContext.Configuration.Personal ? Constants.ActionActivateUsersPersonal : Constants.ActionActivateUsers,
+                Constants.ActionActivateUsers,
                 null,
                 RecipientFromEmail(new[] { newUserInfo.Email.ToLower() }, false),
                 new[] { EMailSenderName },
                 null,
                 new TagValue(Constants.TagInviteLink, GenerateActivationConfirmUrl(newUserInfo)),
                 new TagValue(Constants.TagUserName, newUserInfo.DisplayUserName()),
-                new TagValue("TagBlogLink", "http://www.onlyoffice.com/blog/2013/12/teamlab-personal-christmas-gift-for-your-family-and-friends/"),
+                new TagValue(Constants.TagBlogLink, "http://www.onlyoffice.com/blog/2013/12/teamlab-personal-christmas-gift-for-your-family-and-friends/"),
                 Constants.TagTableTop(),
                 Constants.TagTableItem(1),
                 Constants.TagTableItem(2),
                 Constants.TagTableItem(3),
                 Constants.TagTableBottom(),
-                new TagValue("WithPhoto", CoreContext.Configuration.Personal ? "" : "photo"),
+                Constants.TagMarkerStart,
+                Constants.TagMarkerEnd,
+                Constants.TagFrameStart,
+                Constants.TagFrameEnd,
+                Constants.TagHeaderStart,
+                Constants.TagHeaderEnd,
+                Constants.TagStrongStart,
+                Constants.TagStrongEnd,
+                Constants.TagSignatureStart,
+                Constants.TagSignatureEnd,
+                new TagValue(CommonTags.WithPhoto, "links"),
+                new TagValue(CommonTags.IsPromoLetter, "false"),
                 CreateSendFromTag());
         }
 
@@ -550,18 +704,45 @@ namespace ASC.Web.Studio.Core.Notify
         }
 
 
-        public void SendMsgBackupCompleted(Guid userId, string url, DateTime availibleDue)
+        public void SendMsgBackupCompleted(Guid userId, string link)
         {
-            var user = CoreContext.UserManager.GetUsers(userId);
             client.SendNoticeToAsync(
-                        Constants.ActionBackupCreated,
-                        null,
-                        new[] { user },
-                        new[] { EMailSenderName },
-                        null,
-                        new TagValue(Constants.TagBackupUrl, url),
-                        new TagValue(Constants.TagBackupHours, (int)(availibleDue - DateTime.UtcNow).TotalHours),
-                        new TagValue(Constants.TagOwnerName, user.DisplayUserName()));
+                Constants.ActionBackupCreated,
+                null,
+                new[] {ToRecipient(userId)},
+                new[] {EMailSenderName},
+                null,
+                new TagValue(Constants.TagOwnerName, CoreContext.UserManager.GetUsers(userId).DisplayUserName()));
+        }
+
+        public void SendMsgRestoreStarted(bool notifyAllUsers)
+        {
+            IRecipient[] users =
+                notifyAllUsers
+                    ? CoreContext.UserManager.GetUsers(EmployeeStatus.Active).Select(u => ToRecipient(u.ID)).ToArray()
+                    : new[] { ToRecipient(CoreContext.TenantManager.GetCurrentTenant().OwnerId) };
+
+            client.SendNoticeToAsync(
+                Constants.ActionRestoreStarted,
+                null,
+                users,
+                new[] { EMailSenderName },
+                null);
+        }
+
+        public void SendMsgRestoreCompleted(bool notifyAllUsers)
+        {
+            IRecipient[] users =
+                notifyAllUsers
+                    ? CoreContext.UserManager.GetUsers(EmployeeStatus.Active).Select(u => ToRecipient(u.ID)).ToArray()
+                    : new[] {ToRecipient(CoreContext.TenantManager.GetCurrentTenant().OwnerId)};
+
+            client.SendNoticeToAsync(
+                Constants.ActionRestoreCompleted,
+                null,
+                users,
+                new[] {EMailSenderName},
+                null);
         }
 
         public void SendMsgPortalDeactivation(Tenant t, string d_url, string a_url)
@@ -652,7 +833,7 @@ namespace ASC.Web.Studio.Core.Notify
                 new TagValue(Constants.TagInviteLink, CommonLinkUtility.GetConfirmationUrl(u.Email, ConfirmType.EmailActivation)),
                 Constants.TagNoteStart,
                 Constants.TagNoteEnd,
-                new TagValue("WithPhoto", "photo"));
+                new TagValue(CommonTags.WithPhoto, "links"));
         }
 
         public void SendTariffWarnings(DateTime scheduleDate)
@@ -662,7 +843,16 @@ namespace ASC.Web.Studio.Core.Notify
 
             log.Info("Start SendTariffWarnings.");
 
-            foreach (var tenant in CoreContext.TenantManager.GetTenants().Where(t => t.Status == TenantStatus.Active))
+            var activeTenants = CoreContext.TenantManager.GetTenants().Where(t => t.Status == TenantStatus.Active).ToList();
+
+            if (activeTenants.Count > 0)
+            {
+                var monthQuotas = CoreContext.TenantManager.GetTenantQuotas()
+                                .Where(r => !r.Trial && r.Visible && !r.Year && !r.Free && !r.NonProfit)
+                                .ToList();
+                var monthQuotasIds = monthQuotas.Select(q => q.Id).ToArray();
+
+            foreach (var tenant in activeTenants)
             {
                 try
                 {
@@ -702,6 +892,8 @@ namespace ASC.Web.Studio.Core.Notify
                     var tableItemComment4 = string.Empty;
                     var tableItemComment5 = string.Empty;
 
+                    #region 3 days after registration
+
                     if (tenant.CreatedDateTime.Date.AddDays(3) == now)
                     {
                         action = Constants.ActionAfterCreation1;
@@ -722,6 +914,11 @@ namespace ASC.Web.Studio.Core.Notify
                         tableItemText4 = "ItemAddTeamlabMail";
                         tableItemUrl4 = "http://helpcenter.onlyoffice.com/gettingstarted/mail.aspx?utm_medium=newsletter&utm_source=after_signup_1&utm_campaign=email";
                     }
+
+                    #endregion
+
+                    #region 7 days after registration
+
                     if (tenant.CreatedDateTime.Date.AddDays(7) == now)
                     {
                         action = Constants.ActionAfterCreation4;
@@ -746,6 +943,11 @@ namespace ASC.Web.Studio.Core.Notify
                         tableItemText5 = "ItemIntegrateIM";
                         tableItemUrl5 = "http://helpcenter.onlyoffice.com/tipstricks/integrating-talk.aspx?utm_medium=newsletter&utm_source=after_signup_7&utm_campaign=email";
                     }
+
+                    #endregion
+
+                    #region 2 weeks after registration
+
                     if (tenant.CreatedDateTime.Date.AddDays(14) == now)
                     {
                         onlyadmins = false;
@@ -779,6 +981,11 @@ namespace ASC.Web.Studio.Core.Notify
                         greenButtonText = "ButtonLogInTeamlab";
                         greenButtonUrl = CommonLinkUtility.GetFullAbsolutePath("~").TrimEnd('/');
                     }
+
+                    #endregion
+
+                    #region 3 weeks after registration
+
                     if (tenant.CreatedDateTime.Date.AddDays(21) == now)
                     {
                         onlyadmins = false;
@@ -786,7 +993,7 @@ namespace ASC.Web.Studio.Core.Notify
 
                         tableItemImg1 = "http://cdn.teamlab.com/media/newsletters/images/online_editor.jpg";
                         tableItemText1 = "ItemUseOnlineEditor";
-                        tableItemUrl1 = "http://helpcenter.onlyoffice.com/TeamLab-Editors/index.aspx?utm_medium=newsletter&utm_source=after_signup_21&utm_campaign=email";
+                        tableItemUrl1 = "http://helpcenter.onlyoffice.com/ONLYOFFICE-Editors/index.aspx?utm_medium=newsletter&utm_source=after_signup_21&utm_campaign=email";
 
                         tableItemImg2 = "http://cdn.teamlab.com/media/newsletters/images/coedit.jpg";
                         tableItemText2 = "ItemCreatCoeditDocs";
@@ -807,33 +1014,118 @@ namespace ASC.Web.Studio.Core.Notify
                         greenButtonText = "ButtonLogInTeamlab";
                         greenButtonUrl = CommonLinkUtility.GetFullAbsolutePath("~").TrimEnd('/');
                     }
+
+                    #endregion
+
+                    #region 5 days before trial ends
+
                     if (quota.Trial && duedate.AddDays(-5) == now)
                     {
                         action = Constants.ActionTariffWarningTrial;
-                        footer = "photo";
+                        footer = "links";
                         greenButtonText = "ButtonSelectPricingPlans";
                         greenButtonUrl = CommonLinkUtility.GetFullAbsolutePath("~/tariffs.aspx");
                     }
+
+                    #endregion
+
+                    #region trial expires today
+
                     if (quota.Trial && duedate == now)
                     {
                         action = Constants.ActionTariffWarningTrial2;
-                        footer = "photo";
+                        footer = "links";
                     }
+
+                    #endregion
+
+                    #region 5 days after trial expired
+
                     if (quota.Trial && duedate.AddDays(5) == now && tenant.VersionChanged <= tenant.CreatedDateTime)
                     {
                         action = Constants.ActionTariffWarningTrial3;
-                        footer = "photo";
+                        footer = "links";
                         greenButtonText = "ButtonExtendTrialButton";
                         greenButtonUrl = "mailto:sales@onlyoffice.com";
                     }
 
-                    if (quota.Trial && duedate.AddDays(30) == now && CoreContext.UserManager.GetUsers().Count() == 1) 
+                    #endregion
+
+                    #region 30 days after trial expired
+
+                    if (quota.Trial && duedate.AddDays(30) == now && CoreContext.UserManager.GetUsers().Count() == 1)
                     {
                         action = Constants.ActionTariffWarningTrial4;
-                        footer = "photo";
+                        footer = "links";
                         greenButtonText = "ButtonSignUpPersonal";
                         greenButtonUrl = "https://personal.onlyoffice.com";
                     }
+
+                    #endregion
+
+
+                    var dbid = "webstudio";
+
+                    #region 2 weeks after 3 times paid
+
+                    try
+                    {
+                        if (tariff.State == TariffState.Paid)
+                        {
+                            var lastDatePayment = DateTime.MinValue;
+
+                            var query = new SqlQuery("tenants_tariff")
+                                .Select("max(create_on)")
+                                .Where(Exp.Eq("tenant", tenant.TenantId) & Exp.In("tariff", monthQuotasIds))
+                                .Having(Exp.Sql("count(*) >= 3"));
+
+                            using (var db = new DbManager(dbid))
+                            {
+                                lastDatePayment = db.ExecuteScalar<DateTime>(query);
+                            }
+
+                            if (lastDatePayment != DateTime.MinValue && lastDatePayment.AddDays(14) == now){
+                                action = Constants.ActionAfterPayment1;
+                                footer = "photo";
+                            }
+                        }
+                    }
+                    catch (Exception e) {
+                        log.Error(e);
+                    }
+
+                    #endregion
+
+
+
+                    #region 5 days after registration without activity in 1 or more days
+
+                    if (tenant.CreatedDateTime.Date.AddDays(5) == now)
+                    {
+
+                        var datesWithActivity = new List<DateTime>();
+                        var query = new SqlQuery("feed_aggregate")
+                            .Select(new SqlExp("cast(created_date as date) as short_date"))
+
+                            .Where("tenant", CoreContext.TenantManager.GetCurrentTenant().TenantId)
+                            .Where(Exp.Le("created_date", now.AddDays(-1)))
+                            .GroupBy("short_date");
+
+                        using (var db = new DbManager(dbid))
+                        {
+                            datesWithActivity = db
+                                .ExecuteList(query)
+                                .ConvertAll(r => Convert.ToDateTime(r[0]));
+                        }
+
+                        if (datesWithActivity.Count < 5)
+                        {
+                            action = Constants.ActionAfterCreation5;
+                        }
+                    }
+
+                    #endregion
+
 
                     if (action != null)
                     {
@@ -852,11 +1144,11 @@ namespace ASC.Web.Studio.Core.Notify
                                 new[] { EMailSenderName },
                                 null,
                                 new TagValue(Constants.TagUserName, u.DisplayUserName()),
-                                new TagValue("PricingPage", CommonLinkUtility.GetFullAbsolutePath("~/tariffs.aspx")),
-                                new TagValue("FAQ", CommonLinkUtility.GetHelpLink(true) + "faq/pricing.aspx"),
-                                new TagValue("ActiveUsers", CoreContext.UserManager.GetUsers().Count()),
-                                new TagValue("Price", rquota.Price),//TODO: use price partner
-                                new TagValue("PricePeriod", rquota.Year ? UserControlsCommonResource.TariffPerYear : UserControlsCommonResource.TariffPerMonth),
+                                new TagValue(Constants.TagPricingPage, CommonLinkUtility.GetFullAbsolutePath("~/tariffs.aspx")),
+                                new TagValue(Constants.TagFAQ, getHelpCenterLink() + "faq/pricing.aspx"),
+                                new TagValue(Constants.TagActiveUsers, CoreContext.UserManager.GetUsers().Count()),
+                                new TagValue(Constants.TagPrice, rquota.Price),//TODO: use price partner
+                                new TagValue(Constants.TagPricePeriod, rquota.Year ? UserControlsCommonResource.TariffPerYear : UserControlsCommonResource.TariffPerMonth),
                                 Constants.TagBlueButton("ButtonRequestCallButton", "http://www.onlyoffice.com/call-back-form.aspx"),
                                 Constants.TagGreenButton(greenButtonText, greenButtonUrl),
                                 Constants.TagTableTop(),
@@ -866,7 +1158,7 @@ namespace ASC.Web.Studio.Core.Notify
                                 Constants.TagTableItem(4, tableItemText4, tableItemUrl4, tableItemImg4, tableItemComment4),
                                 Constants.TagTableItem(5, tableItemText5, tableItemUrl5, tableItemImg5, tableItemComment5),
                                 Constants.TagTableBottom(),
-                                new TagValue("WithPhoto", string.IsNullOrEmpty(tenant.PartnerId) ? footer : string.Empty ));
+                                new TagValue(CommonTags.WithPhoto, string.IsNullOrEmpty(tenant.PartnerId) ? footer : string.Empty));
                         }
                     }
                 }
@@ -875,7 +1167,170 @@ namespace ASC.Web.Studio.Core.Notify
                     log.Error(err);
                 }
             }
+            }
             log.Info("End SendTariffWarnings.");
+        }
+
+        public void SendLettersPersonal(DateTime scheduleDate)
+        {
+
+            var log = LogManager.GetLogger("ASC.Notify");
+
+            log.Info("Start SendLettersPersonal...");
+
+            foreach (var tenant in CoreContext.TenantManager.GetTenants().Where(t => t.Status == TenantStatus.Active))
+            {
+                try
+                {
+                    int sendCount = 0;
+
+                    CoreContext.TenantManager.SetCurrentTenant(tenant.TenantId);
+
+                    log.InfoFormat("Current tenant: {0}", tenant.TenantId);
+
+                    var users = CoreContext.UserManager.GetUsers(EmployeeStatus.Active);
+
+
+                    foreach (var user in users)
+                    {
+                        INotifyAction action;
+
+                        SecurityContext.AuthenticateMe(CoreContext.Authentication.GetAccountByID(user.ID));
+
+                        var culture = tenant.GetCulture();
+
+                        if (!string.IsNullOrEmpty(user.CultureName))
+                        {
+                            try
+                            {
+                                culture = user.GetCulture();
+                            }
+                            catch (CultureNotFoundException exception)
+                            {
+
+                                log.Error(exception);
+                            }
+
+                        }
+
+                        Thread.CurrentThread.CurrentCulture = culture;
+                        Thread.CurrentThread.CurrentUICulture = culture;
+
+                        var dayAfterRegister = (int)scheduleDate.Date.Subtract(user.CreateDate.Date).TotalDays;
+
+                        switch (dayAfterRegister)
+                        {
+                            case 7:
+                                action = Constants.ActionAfterRegistrationPersonal7;
+                                break;
+                            case 14:
+                                action = Constants.ActionAfterRegistrationPersonal14;
+                                break;
+                            case 21:
+                                action = Constants.ActionAfterRegistrationPersonal21;
+                                break;
+                            default:
+                                continue;
+
+                        }
+
+                        log.InfoFormat(@"Send letter personal '{1}'  to {0} culture {2}. tenant id: {3} user culture {4} create on {5} now date {6}",
+                              user.Email, action.Name, culture, tenant.TenantId, user.GetCulture(), user.CreateDate, scheduleDate.Date);
+
+                        sendCount++;
+
+                        client.SendNoticeToAsync(
+                          action,
+                          null,
+                          RecipientFromEmail(new[] { user.Email.ToLower() }, true),
+                          new[] { EMailSenderName },
+                          null,
+                          Constants.TagMarkerStart,
+                          Constants.TagMarkerEnd,
+                          Constants.TagFrameStart,
+                          Constants.TagFrameEnd,
+                          Constants.TagHeaderStart,
+                          Constants.TagHeaderEnd,
+                          Constants.TagStrongStart,
+                          Constants.TagStrongEnd,
+                          Constants.TagSignatureStart,
+                          Constants.TagSignatureEnd,
+                          new TagValue(CommonTags.WithPhoto, "personal"),
+                          new TagValue(CommonTags.IsPromoLetter, "true"));
+                    }
+
+                    log.InfoFormat("Total send count: {0}", sendCount);
+
+                }
+                catch (Exception err)
+                {
+                    log.Error(err);
+                }
+
+
+
+
+            }
+
+            log.Info("End SendLettersPersonal.");
+        }
+
+        public void SendInvitePersonal(string email, string additionalMember = "")
+        {
+            var newUserInfo = CoreContext.UserManager.GetUserByEmail(email);
+            if (!CoreContext.UserManager.UserExists(newUserInfo.ID))
+            {
+                var confirmUrl = CommonLinkUtility.GetConfirmationUrl(email, ConfirmType.EmpInvite, (int)EmployeeType.User)
+                                 + "&emplType=" + (int)EmployeeType.User
+                                 + "&lang=" + Thread.CurrentThread.CurrentUICulture.TwoLetterISOLanguageName
+                                 + additionalMember;
+
+                client.SendNoticeToAsync(
+                            Constants.ActionConfirmationPersonal,
+                            null,
+                            RecipientFromEmail(new string[] { email }, false),
+                            new[] { EMailSenderName },
+                            null,
+                            new TagValue(Constants.TagInviteLink, confirmUrl),
+                            Constants.TagSignatureStart,
+                            Constants.TagSignatureEnd,
+                            new TagValue(CommonTags.WithPhoto, "personal"),
+                            new TagValue(CommonTags.IsPromoLetter, "true"),
+                            Constants.UnsubscribeLink,
+                            new TagValue(CommonTags.Culture, Thread.CurrentThread.CurrentUICulture.Name));
+            }
+        }
+
+        public void SendUserWelcomePersonal(UserInfo newUserInfo)
+        {
+            client.SendNoticeToAsync(
+                Constants.ActionAfterRegistrationPersonal1,
+                null,
+                RecipientFromEmail(new[] { newUserInfo.Email.ToLower() }, true),
+                new[] { EMailSenderName },
+                null,
+                new TagValue(Constants.TagInviteLink, GenerateActivationConfirmUrl(newUserInfo)),
+                new TagValue(Constants.TagUserName, newUserInfo.DisplayUserName()),
+                new TagValue(Constants.TagBlogLink, "http://www.onlyoffice.com/blog/2013/12/teamlab-personal-christmas-gift-for-your-family-and-friends/"),
+                Constants.TagTableTop(),
+                Constants.TagTableItem(1),
+                Constants.TagTableItem(2),
+                Constants.TagTableItem(3),
+                Constants.TagTableBottom(),
+                Constants.TagMarkerStart,
+                Constants.TagMarkerEnd,
+                Constants.TagFrameStart,
+                Constants.TagFrameEnd,
+                Constants.TagHeaderStart,
+                Constants.TagHeaderEnd,
+                Constants.TagStrongStart,
+                Constants.TagStrongEnd,
+                Constants.TagSignatureStart,
+                Constants.TagSignatureEnd,
+                new TagValue(CommonTags.WithPhoto, "personal"),
+                new TagValue(CommonTags.IsPromoLetter, "true"),
+                Constants.UnsubscribeLink,
+                CreateSendFromTag());
         }
 
         public void MigrationPortalStart(string region, bool notify)
@@ -908,7 +1363,7 @@ namespace ASC.Web.Studio.Core.Notify
                     new[] { EMailSenderName },
                     null,
                     new TagValue(Constants.TagRegionName, TransferResourceHelper.GetRegionDescription(region)),
-                    new TagValue("PortalUrl", url));
+                    new TagValue(Constants.TagPortalUrl, url));
             }
         }
 
@@ -956,6 +1411,29 @@ namespace ASC.Web.Studio.Core.Notify
                                               HttpUtility.UrlEncode(user.LastName));
         }
 
+        private string getHelpCenterLink()
+        {
+            var url = "http://helpcenter.onlyoffice.com/{ru|de|fr|es|lv|it}";
+
+            if (string.IsNullOrEmpty(CommonLinkUtility.GetHelpLink()))
+            {
+                if (url.Contains("{"))
+                {
+                    var parts = url.Split('{');
+                    url = parts[0];
+                    if (parts[1].Contains(CultureInfo.CurrentCulture.TwoLetterISOLanguageName))
+                    {
+                        url += CultureInfo.CurrentCulture.TwoLetterISOLanguageName + "/";
+                    }
+                }
+            }
+            else
+            {
+                url = CommonLinkUtility.GetHelpLink();
+            }
+            return url;
+        }
+
         #endregion
 
         class WhatsNewUserActivity
@@ -966,6 +1444,7 @@ namespace ASC.Web.Studio.Core.Notify
             public string UserName { get; set; }
             public string UserAbsoluteURL { get; set; }
             public DateTime Date { get; set; }
+            public string Action { get; set; }
         }
     }
 }

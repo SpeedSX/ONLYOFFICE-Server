@@ -6,7 +6,6 @@
 <%@ Import Namespace="ASC.Web.CRM.Resources" %>
 <%@ Assembly Name="ASC.Web.CRM" %>
 <%@ Assembly Name="ASC.Web.Core" %>
-<%@ Import Namespace="ASC.CRM.Core" %>
 
 
 <div id="invoiceItemsFilterContainer">
@@ -42,7 +41,6 @@
     <div class="header-menu-spacer">&nbsp;</div>
 
     <div id="changeStatusDialog" class="studio-action-panel changeStatusDialog">
-        <div class="corner-top left"></div>
         <ul class="dropdown-content mobile-overflow"></ul>
     </div>
 
@@ -87,7 +85,6 @@
 </div>
 
 <div id="invoiceItemsActionMenu" class="studio-action-panel">
-    <div class="corner-top right"></div>
     <ul class="dropdown-content">
         <li><a class="dropdown-item editInvoiceItemLink"><%= CRMInvoiceResource.EditInvoiceItem %></a></li>
         <li><a class="dropdown-item deleteInvoiceItemLink"><%= CRMCommonResource.Delete %></a></li>

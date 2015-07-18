@@ -1,30 +1,28 @@
 /*
-(c) Copyright Ascensio System SIA 2010-2014
-
-This program is a free software product.
-You can redistribute it and/or modify it under the terms 
-of the GNU Affero General Public License (AGPL) version 3 as published by the Free Software
-Foundation. In accordance with Section 7(a) of the GNU AGPL its Section 15 shall be amended
-to the effect that Ascensio System SIA expressly excludes the warranty of non-infringement of 
-any third-party rights.
-
-This program is distributed WITHOUT ANY WARRANTY; without even the implied warranty 
-of MERCHANTABILITY or FITNESS FOR A PARTICULAR  PURPOSE. For details, see 
-the GNU AGPL at: http://www.gnu.org/licenses/agpl-3.0.html
-
-You can contact Ascensio System SIA at Lubanas st. 125a-25, Riga, Latvia, EU, LV-1021.
-
-The  interactive user interfaces in modified source and object code versions of the Program must 
-display Appropriate Legal Notices, as required under Section 5 of the GNU AGPL version 3.
- 
-Pursuant to Section 7(b) of the License you must retain the original Product logo when 
-distributing the program. Pursuant to Section 7(e) we decline to grant you any rights under 
-trademark law for use of our trademarks.
- 
-All the Product's GUI elements, including illustrations and icon sets, as well as technical writing
-content are licensed under the terms of the Creative Commons Attribution-ShareAlike 4.0
-International. See the License terms at http://creativecommons.org/licenses/by-sa/4.0/legalcode
+ *
+ * (c) Copyright Ascensio System Limited 2010-2015
+ *
+ * This program is freeware. You can redistribute it and/or modify it under the terms of the GNU 
+ * General Public License (GPL) version 3 as published by the Free Software Foundation (https://www.gnu.org/copyleft/gpl.html). 
+ * In accordance with Section 7(a) of the GNU GPL its Section 15 shall be amended to the effect that 
+ * Ascensio System SIA expressly excludes the warranty of non-infringement of any third-party rights.
+ *
+ * THIS PROGRAM IS DISTRIBUTED WITHOUT ANY WARRANTY; WITHOUT EVEN THE IMPLIED WARRANTY OF MERCHANTABILITY OR
+ * FITNESS FOR A PARTICULAR PURPOSE. For more details, see GNU GPL at https://www.gnu.org/copyleft/gpl.html
+ *
+ * You can contact Ascensio System SIA by email at sales@onlyoffice.com
+ *
+ * The interactive user interfaces in modified source and object code versions of ONLYOFFICE must display 
+ * Appropriate Legal Notices, as required under Section 5 of the GNU GPL version 3.
+ *
+ * Pursuant to Section 7 § 3(b) of the GNU GPL you must retain the original ONLYOFFICE logo which contains 
+ * relevant author attributions when distributing the software. If the display of the logo in its graphic 
+ * form is not reasonably feasible for technical reasons, you must include the words "Powered by ONLYOFFICE" 
+ * in every copy of the program you distribute. 
+ * Pursuant to Section 7 § 3(e) we decline to grant you any rights under trademark law for use of our trademarks.
+ *
 */
+
 
 using log4net;
 using System;
@@ -59,13 +57,13 @@ namespace ASC.Core.Billing
         public PaymentLast GetLastPayment(string portalId)
         {
             var result = Request("GetLatestActiveResourceEx", portalId);
-            var xelement = ToXElement("<root>" + result + "</root>", true);
+            var xelement = ToXElement("<root>" + result + "</root>");
             var dedicated = xelement.Element("dedicated-resource");
             var payment = xelement.Element("payment");
 
             if (!test && GetValueString(payment.Element("status")) == "4")
             {
-                throw new BillingException("Can not accept test payment.");
+                throw new BillingException("Can not accept test payment.", new { PortalId = portalId });
             }
 
             var autorenewal = string.Empty;
@@ -75,7 +73,7 @@ namespace ASC.Core.Billing
             }
             catch (BillingException err)
             {
-                log.Error(err);
+                log.Debug(err); // ignore
             }
 
             return new PaymentLast
@@ -98,7 +96,7 @@ namespace ASC.Core.Billing
             {
                 result = Request("GetListOfPaymentsByTimeSpan", portalId, Tuple.Create("StartDate", from.ToString("yyyy-MM-dd HH:mm:ss")), Tuple.Create("EndDate", to.ToString("yyyy-MM-dd HH:mm:ss")));
             }
-            var xelement = ToXElement(result, true);
+            var xelement = ToXElement(result);
             foreach (var x in xelement.Elements("payment"))
             {
                 yield return ToPaymentInfo(x);
@@ -115,14 +113,14 @@ namespace ASC.Core.Billing
                 .Concat(new[] { Tuple.Create("PaymentSystemId", "1") })
                 .ToArray();
 
-            var paymentUrls = ToXElement(Request("GetBatchPaymentSystemUrl", portalId, parameters), false)
+            var paymentUrls = ToXElement(Request("GetBatchPaymentSystemUrl", portalId, parameters))
                 .Elements()
                 .ToDictionary(e => e.Attribute("id").Value, e => ToUrl(e.Attribute("value").Value));
 
             var upgradeUrls = new Dictionary<string, string>();
             try
             {
-                upgradeUrls = ToXElement(Request("GetBatchPaymentSystemUpgradeUrl", portalId, parameters), false)
+                upgradeUrls = ToXElement(Request("GetBatchPaymentSystemUpgradeUrl", portalId, parameters))
                     .Elements()
                     .ToDictionary(e => e.Attribute("id").Value, e => ToUrl(e.Attribute("value").Value));
             }
@@ -162,7 +160,7 @@ namespace ASC.Core.Billing
             var url = ToUrl(result);
             if (string.IsNullOrEmpty(url))
             {
-                throw new BillingException(result);
+                throw new BillingException(result, new { PortalId = portalId, Product = product, Language = language });
             }
             return url;
         }
@@ -170,12 +168,33 @@ namespace ASC.Core.Billing
         public Invoice GetInvoice(string paymentId)
         {
             var result = Request("GetInvoice", null, Tuple.Create("PaymentId", paymentId));
-            var xelement = ToXElement(result, true);
+            var xelement = ToXElement(result);
             return new Invoice
             {
                 Sale = GetValueString(xelement.Element("sale")),
                 Refund = GetValueString(xelement.Element("refund")),
             };
+        }
+
+        public IEnumerable<PaymentLast> GetLastPaymentByEmail(string email)
+        {
+            var result = Request("GetActiveResourceInDetailsByEmail", null, Tuple.Create("Email", email));
+            var xelement = ToXElement("<root>" + result + "</root>");
+            return (from e in xelement.Elements()
+                    let options = (e.Element("payment-options") ?? new XElement("payment-options"))
+                     .Elements("payment-option")
+                     .ToDictionary(o => o.Attribute("name").Value, o => o.Attribute("value").Value)
+                    select new PaymentLast
+                    {
+                        CustomerId = GetValueString(e.Element("customer-id")),
+                        PaymentRef = GetValueString(e.Element("payment-ref")),
+                        ProductName = GetValueString(e.Element("product-name")),
+                        StartDate = GetValueDateTime(e.Element("start-date")),
+                        EndDate = GetValueDateTime(e.Element("end-date")),
+                        PaymentDate = GetValueDateTime(e.Element("payment-date")),
+                        SAAS = GetValueDecimal(e.Element("resource-type")) < 4m,
+                        Options = options,
+                    }).ToArray();
         }
 
         public PaymentOffice GetPaymentOffice(string portalId)
@@ -186,7 +205,7 @@ namespace ASC.Core.Billing
                 try
                 {
                     var result = Request("GetLatestActiveResourceInDetails", portalId);
-                    var xelement = ToXElement(result, true);
+                    var xelement = ToXElement(result);
                     var skey = xelement.Element("skey");
                     var resources = xelement.Element("resource-options");
                     return new PaymentOffice
@@ -261,16 +280,18 @@ namespace ASC.Core.Billing
             }
             else
             {
-                throw new BillingException(responce.Content);
+                var @params = (parameters ?? Enumerable.Empty<Tuple<string, string>>()).Select(p => string.Format("{0}: {1}", p.Item1, p.Item2));
+                var info = new { Method = method, PortalId = portalId, Params = string.Join(", ", @params) };
+                if (responce.Content.Contains("error: cannot find "))
+                {
+                    throw new BillingNotFoundException(responce.Content, info);
+                }
+                throw new BillingException(responce.Content, info);
             }
         }
 
-        private XElement ToXElement(string xml, bool htmlDecode)
+        private XElement ToXElement(string xml)
         {
-            if (htmlDecode && xml.Contains("&"))
-            {
-                xml = HttpUtility.HtmlDecode(xml);
-            }
             return XElement.Parse(xml);
         }
 
@@ -291,6 +312,9 @@ namespace ASC.Core.Billing
                 Method = GetValueString(x.Element("payment-method")),
                 CartId = GetValueString(x.Element("cart-id")),
                 ProductId = GetValueString(x.Element("product-ref")),
+                TenantID = GetValueString(x.Element("customer-id")),
+                Country = GetValueString(x.Element("country")),
+                DiscountSum = GetValueDecimal(x.Element("discount-sum"))
             };
         }
 
@@ -310,7 +334,7 @@ namespace ASC.Core.Billing
 
         private string GetValueString(XElement xelement)
         {
-            return xelement != null ? xelement.Value : default(string);
+            return xelement != null ? HttpUtility.HtmlDecode(xelement.Value) : default(string);
         }
 
         private DateTime GetValueDateTime(XElement xelement)
@@ -396,12 +420,50 @@ namespace ASC.Core.Billing
     [Serializable]
     public class BillingException : Exception
     {
-        public BillingException(string message)
-            : base(message)
+        public BillingException(string message, object debugInfo = null)
+            : base(message + (debugInfo != null ? " Debug info: " + debugInfo : string.Empty))
+        {
+        }
+
+        public BillingException(string message, Exception inner)
+            : base(message, inner)
         {
         }
 
         protected BillingException(SerializationInfo info, StreamingContext context)
+            : base(info, context)
+        {
+        }
+    }
+
+    [Serializable]
+    public class BillingNotFoundException : BillingException
+    {
+        public BillingNotFoundException(string message, object debugInfo = null)
+            : base(message, debugInfo)
+        {
+        }
+
+        protected BillingNotFoundException(SerializationInfo info, StreamingContext context)
+            : base(info, context)
+        {
+        }
+    }
+
+    [Serializable]
+    public class BillingNotConfiguredException : BillingException
+    {
+        public BillingNotConfiguredException(string message, object debugInfo = null)
+            : base(message, debugInfo)
+        {
+        }
+
+        public BillingNotConfiguredException(string message, Exception inner)
+            : base(message, inner)
+        {
+        }
+
+        protected BillingNotConfiguredException(SerializationInfo info, StreamingContext context)
             : base(info, context)
         {
         }

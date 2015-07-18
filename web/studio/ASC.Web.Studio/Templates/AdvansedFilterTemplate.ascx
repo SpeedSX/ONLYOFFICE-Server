@@ -38,13 +38,12 @@
         <div class="advansed-item-list advansed-filter-list"><ul class="item-list filter-list"></ul></div>
         <div class="advansed-filter-control advansed-filter-groupselector">
             <div class="advansed-filter-control-container advansed-filter-groupselector-container">
-                <div class="control-top groupselector-top"></div>
             </div>
         </div>
 
         <div class="advansed-filter-control advansed-filter-userselector">
             <div class="advansed-filter-control-container advansed-filter-userselector-container">
-                <div class="control-top userselector-top"></div>
+
             </div>
         </div>
 
@@ -52,7 +51,6 @@
                 <div class="advansed-filter-filters empty-list">
                     <div class="btn-show-hidden-filters"><%= Resources.UserControlsCommonResource.BtnHiddenFilter%></div>
                     <div class="hidden-filters-container">
-                        <div class="control-top hidden-filters-container-top"></div>
                     </div>
                 </div>
                 <div class="advansed-filter-button btn-show-filters">
@@ -60,7 +58,7 @@
                 </div>
                 <div class="advansed-filter-input">
                     <label class="advansed-filter-reset btn-reset-filter"></label>
-                    <input class="advansed-filter advansed-filter-input advansed-filter-complete" type="text" placeholder="<%= Resources.UserControlsCommonResource.LblFilterPlaceholder%>" />
+                    <input class="advansed-filter advansed-filter-input advansed-filter-complete" type="text" placeholder="<%= Resources.UserControlsCommonResource.LblFilterPlaceholder%>" maxlength="255"/>
                 </div>
             </div>
         {{if filtervalues.length > 0}}
@@ -83,7 +81,6 @@
                 <span class="advansed-filter-dateselector-date dateselector-from-date">
                 <span class="btn-show-datepicker btn-show-datepicker-container"><span class="btn-show-datepicker btn-show-datepicker-title"></span></span>
                 <span class="advansed-filter-datepicker-container asc-datepicker">
-                    <span class="control-top dateselector-top"></span>
                     <span class="datepicker-container"></span>
                 </span>
             </span>
@@ -93,7 +90,6 @@
             <span class="advansed-filter-dateselector-date dateselector-to-date">
                 <span class="btn-show-datepicker btn-show-datepicker-container"><span class="btn-show-datepicker btn-show-datepicker-title"></span></span>
                 <span class="advansed-filter-datepicker-container asc-datepicker">
-                    <span class="control-top dateselector-top"></span>
                     <span class="datepicker-container"></span>
                 </span>
             </span>

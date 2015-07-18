@@ -1,46 +1,48 @@
 /*
-(c) Copyright Ascensio System SIA 2010-2014
-
-This program is a free software product.
-You can redistribute it and/or modify it under the terms 
-of the GNU Affero General Public License (AGPL) version 3 as published by the Free Software
-Foundation. In accordance with Section 7(a) of the GNU AGPL its Section 15 shall be amended
-to the effect that Ascensio System SIA expressly excludes the warranty of non-infringement of 
-any third-party rights.
-
-This program is distributed WITHOUT ANY WARRANTY; without even the implied warranty 
-of MERCHANTABILITY or FITNESS FOR A PARTICULAR  PURPOSE. For details, see 
-the GNU AGPL at: http://www.gnu.org/licenses/agpl-3.0.html
-
-You can contact Ascensio System SIA at Lubanas st. 125a-25, Riga, Latvia, EU, LV-1021.
-
-The  interactive user interfaces in modified source and object code versions of the Program must 
-display Appropriate Legal Notices, as required under Section 5 of the GNU AGPL version 3.
- 
-Pursuant to Section 7(b) of the License you must retain the original Product logo when 
-distributing the program. Pursuant to Section 7(e) we decline to grant you any rights under 
-trademark law for use of our trademarks.
- 
-All the Product's GUI elements, including illustrations and icon sets, as well as technical writing
-content are licensed under the terms of the Creative Commons Attribution-ShareAlike 4.0
-International. See the License terms at http://creativecommons.org/licenses/by-sa/4.0/legalcode
+ *
+ * (c) Copyright Ascensio System Limited 2010-2015
+ *
+ * This program is freeware. You can redistribute it and/or modify it under the terms of the GNU 
+ * General Public License (GPL) version 3 as published by the Free Software Foundation (https://www.gnu.org/copyleft/gpl.html). 
+ * In accordance with Section 7(a) of the GNU GPL its Section 15 shall be amended to the effect that 
+ * Ascensio System SIA expressly excludes the warranty of non-infringement of any third-party rights.
+ *
+ * THIS PROGRAM IS DISTRIBUTED WITHOUT ANY WARRANTY; WITHOUT EVEN THE IMPLIED WARRANTY OF MERCHANTABILITY OR
+ * FITNESS FOR A PARTICULAR PURPOSE. For more details, see GNU GPL at https://www.gnu.org/copyleft/gpl.html
+ *
+ * You can contact Ascensio System SIA by email at sales@onlyoffice.com
+ *
+ * The interactive user interfaces in modified source and object code versions of ONLYOFFICE must display 
+ * Appropriate Legal Notices, as required under Section 5 of the GNU GPL version 3.
+ *
+ * Pursuant to Section 7 § 3(b) of the GNU GPL you must retain the original ONLYOFFICE logo which contains 
+ * relevant author attributions when distributing the software. If the display of the logo in its graphic 
+ * form is not reasonably feasible for technical reasons, you must include the words "Powered by ONLYOFFICE" 
+ * in every copy of the program you distribute. 
+ * Pursuant to Section 7 § 3(e) we decline to grant you any rights under trademark law for use of our trademarks.
+ *
 */
+
 
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Net.Mail;
+using System.IO;
 using System.Text;
 using System.Threading;
 using System.Web;
+using ASC.Core;
 using ASC.Mail.Aggregator;
-using ASC.Mail.Aggregator.Authorization;
 using ASC.Mail.Aggregator.Common;
+using ASC.Mail.Aggregator.Common.Authorization;
+using ASC.Mail.Aggregator.Common.Extension;
 using ASC.Mail.Aggregator.Common.Logging;
 using ActiveUp.Net.Mail;
 using ASC.Api.Mail.DAO;
 using System.Linq;
 using ASC.Api.Mail.Resources;
+using ASC.Core.Notify.Signalr;
+using System.Configuration;
 
 namespace ASC.Api.Mail
 {
@@ -48,151 +50,257 @@ namespace ASC.Api.Mail
     {
         public readonly MailBoxManager manager;
         public readonly ILogger log;
-        public readonly IEnumerable<MessageHandlerBase> message_handlers;
-        private const string EmptyHtmlBody = "<div dir=\"ltr\"><br></div>"; // GMail style
+        private static SignalrServiceClient _signalrServiceClient;
+        private const string EMPTY_HTML_BODY = "<div dir=\"ltr\"><br></div>"; // GMail style
 
-        public MailSendQueue(MailBoxManager manager, ILogger log, IEnumerable<MessageHandlerBase> message_handlers)
+        public MailSendQueue(MailBoxManager manager, ILogger log)
         {
             this.manager = manager;
             this.log = log;
-            this.message_handlers = message_handlers;
+            if (_signalrServiceClient != null) return;
+            var enableSignalr = string.IsNullOrEmpty(ConfigurationManager.AppSettings["web.hub"]) ? "false" : "true";
+            _signalrServiceClient = new SignalrServiceClient(enableSignalr);
         }
 
-        private string GetAccessToken(MailBox mail_box)
+        private string GetAccessToken(MailBox mbox)
         {
-            var service_type = (AuthorizationServiceType)mail_box.ServiceType;
+            var serviceType = (AuthorizationServiceType)mbox.ServiceType;
 
-            switch (service_type)
+            switch (serviceType)
             {
                 case AuthorizationServiceType.Google:
-                    var granted_access = new GoogleOAuth2Authorization(log)
-                        .RequestAccessToken(mail_box.RefreshToken);
+                    var grantedAccess = new GoogleOAuth2Authorization(log)
+                        .RequestAccessToken(mbox.RefreshToken);
 
-                    if (granted_access != null)
-                        return granted_access.AccessToken;
+                    if (grantedAccess != null)
+                        return grantedAccess.AccessToken;
                     break;
             }
 
             return "";
         }
 
-        public int Send(int tenant_id, string username, MailSendItem item, int mail_id)
+        public int Send(int tenant, string username, MailSendItem originalMessage, int mailId, int mailboxId)
         {
-            var mbox = manager.GetMailBox(tenant_id, username, new MailAddress(item.From));
+            var mbox = manager.GetUnremovedMailBox(mailboxId);
             if (mbox == null)
                 throw new ArgumentException("no such mailbox");
 
+            originalMessage.MailboxId = mbox.MailBoxId;
+
             if (mbox.Name != "")
             {
-                item.DisplayName = mbox.Name;
+                originalMessage.DisplayName = mbox.Name;
             }
 
-            if (string.IsNullOrEmpty(item.HtmlBody))
-                item.HtmlBody = EmptyHtmlBody;
+            if (string.IsNullOrEmpty(originalMessage.HtmlBody))
+                originalMessage.HtmlBody = EMPTY_HTML_BODY;
 
-            string mime_message_id, in_reply_to;
-            var message_item = SaveToDraft(tenant_id, username, item, mail_id, out mime_message_id, out in_reply_to, mbox);
+            var messageItem = SaveToDraft(originalMessage, mailId, mbox);
 
-            if (message_item.Id > 0)
+            if (messageItem.Id > 0)
             {
-                var user_culture = Thread.CurrentThread.CurrentCulture;
-                var user_ui_culture = Thread.CurrentThread.CurrentUICulture;
+                var userCulture = Thread.CurrentThread.CurrentCulture;
+                var userUiCulture = Thread.CurrentThread.CurrentUICulture;
+                var scheme = HttpContext.Current.Request.GetUrlRewriter().Scheme;
+                // move to_addresses temp
+                manager.SetConversationsFolder(tenant, username, MailFolder.Ids.temp,
+                                                new List<int> { (Int32)messageItem.Id });
+                manager.SetMessageFolderRestore(tenant, username, MailFolder.Ids.drafts,
+                                                (int)messageItem.Id);
                 ThreadPool.QueueUserWorkItem(delegate
-                {
-                    try
                     {
-                        Thread.CurrentThread.CurrentCulture = user_culture;
-                        Thread.CurrentThread.CurrentUICulture = user_ui_culture;
-                        item.ChangeEmbededAttachmentLinks(tenant_id, username);
-                        item.ChangeSmileLinks();
-                        var message = item.ToMimeMessage(tenant_id, username, true);
-                        message.MessageId = mime_message_id;
-
-                        in_reply_to = in_reply_to.Trim();
-                        if (!string.IsNullOrEmpty(in_reply_to))
-                            message.InReplyTo = in_reply_to;
-
-                        if (mbox.RefreshToken != null)
+                        Message mimeMessage;
+                        try
                         {
-                            ActiveUp.Net.Mail.SmtpClient.SendSsl(message, mbox.SmtpServer, mbox.SmtpPort, mbox.SmtpAccount, GetAccessToken(mbox), SaslMechanism.OAuth2);
-                        }
-                        else if (mbox.OutcomingEncryptionType == EncryptionType.None)
-                        {
-                            if (mbox.AuthenticationTypeSmtp == SaslMechanism.None)
-                                ActiveUp.Net.Mail.SmtpClient.Send(message, mbox.SmtpServer, mbox.SmtpPort);
-                            else
-                                ActiveUp.Net.Mail.SmtpClient.Send(message, mbox.SmtpServer, mbox.SmtpPort, mbox.SmtpAccount, mbox.SmtpPassword, mbox.AuthenticationTypeSmtp);
-                        }
-                        else
-                        {
-                            if (mbox.AuthenticationTypeSmtp == SaslMechanism.None)
-                                ActiveUp.Net.Mail.SmtpClient.SendSsl(message, mbox.SmtpServer, mbox.SmtpPort, mbox.OutcomingEncryptionType);
-                            else
-                                ActiveUp.Net.Mail.SmtpClient.SendSsl(message, mbox.SmtpServer, mbox.SmtpPort, mbox.SmtpAccount, mbox.SmtpPassword, mbox.AuthenticationTypeSmtp, mbox.OutcomingEncryptionType);
-                        }
+                            Thread.CurrentThread.CurrentCulture = userCulture;
+                            Thread.CurrentThread.CurrentUICulture = userUiCulture;
 
-                        // message was correctly send - lets update its chains id
-                        var draft_chain_id = message_item.ChainId;
-                        // before moving message from draft to sent folder - lets recalculate its correct chain id
-                        message_item.ChainId = manager.DetectChainId(mbox, message_item);
-                        // push new message correct chain id to db
-                        manager.UpdateMessageChainId(mbox, message_item.Id, MailFolder.Ids.drafts, draft_chain_id, message_item.ChainId);
+                            CoreContext.TenantManager.SetCurrentTenant(tenant);
+                            SecurityContext.AuthenticateMe(new Guid(username));
 
-                        manager.UpdateCrmLinkedChainId(mbox.MailBoxId, tenant_id, draft_chain_id, message_item.ChainId);
+                            ApiHelper.SetupScheme(scheme);
 
-                        //Move to_addresses sent
-                        manager.SetConversationsFolder(tenant_id, username, MailFolder.Ids.sent, new List<int> { (Int32)message_item.Id });
-                        manager.SetMessageFolderRestore(tenant_id, username, MailFolder.Ids.sent, (int)message_item.Id);
+                            originalMessage.ChangeEmbededAttachmentLinks(tenant, username);
+                            originalMessage.ChangeSmileLinks();
 
-                        manager.AddRelationshipEventForLinkedAccounts(mbox, message_item);
+                            originalMessage.ChangeAttachedFileLinksAddresses(tenant);
+                            originalMessage.ChangeAttachedFileLinksImages();
+                            
+                            mimeMessage = originalMessage.ToMimeMessage(tenant, username, true);
 
-                        foreach (var handler in message_handlers)
-                        {
-                            try
+                            var smptClient = MailClientBuilder.Smtp();
+
+                            if (mbox.RefreshToken != null)
                             {
-                                handler.HandleRetrievedMessage(mbox,
-                                    message,
-                                    message_item,
-                                    MailFolder.Ids.sent,
-                                    string.Empty,
-                                    string.Empty,
-                                    message_item.IsNew,
-                                    message_item.TagIds!= null ? message_item.TagIds.ToArray() : new int[0]);
+                                smptClient.SendSsl(mimeMessage, mbox.SmtpServer, mbox.SmtpPort,
+                                                                        mbox.SmtpAccount, GetAccessToken(mbox),
+                                                                        SaslMechanism.OAuth2);
                             }
-                            catch (Exception ex)
+                            else if (mbox.OutcomingEncryptionType == EncryptionType.None)
                             {
-                                log.Error(ex, "MailSendQueue::Send");
+                                if (mbox.AuthenticationTypeSmtp == SaslMechanism.None)
+                                    smptClient.Send(mimeMessage, mbox.SmtpServer, mbox.SmtpPort);
+                                else
+                                    smptClient.Send(mimeMessage, mbox.SmtpServer, mbox.SmtpPort,
+                                                                        mbox.SmtpAccount, mbox.SmtpPassword,
+                                                                        mbox.AuthenticationTypeSmtp);
+                            }
+                            else
+                            {
+                                if (mbox.AuthenticationTypeSmtp == SaslMechanism.None)
+                                    smptClient.SendSsl(mimeMessage, mbox.SmtpServer, mbox.SmtpPort,
+                                                                            mbox.OutcomingEncryptionType);
+                                else
+                                    smptClient.SendSsl(mimeMessage, mbox.SmtpServer, mbox.SmtpPort,
+                                                                            mbox.SmtpAccount, mbox.SmtpPassword,
+                                                                            mbox.AuthenticationTypeSmtp,
+                                                                            mbox.OutcomingEncryptionType);
                             }
                         }
-                    }
-                    catch (Exception ex)
-                    {
-                        AddNotificationAlertToMailbox(tenant_id, username, item, message_item, ex, mbox);
-                    }
-                });
+                        catch (Exception ex)
+                        {
+                            AddNotificationAlertToMailbox(originalMessage, (Int32)messageItem.Id, ex, mbox);
+
+                            // move to_addresses drafts
+                            manager.SetConversationsFolder(tenant, username, MailFolder.Ids.drafts,
+                                                            new List<int> { (Int32)messageItem.Id });
+                            manager.SetMessageFolderRestore(tenant, username, MailFolder.Ids.drafts,
+                                                            (int)messageItem.Id);
+
+                            // send unsuccess notification
+                            SendMailNotification(tenant, username, 1);
+
+                            return;
+                        }
+
+                        SendMailNotification(tenant, username, 0);
+
+                        try
+                        {
+                            // message was correctly send - lets update its chains id
+                            var draftChainId = messageItem.ChainId;
+                            // before moving message from draft to sent folder - lets recalculate its correct chain id
+                            messageItem.ChainId = manager.DetectChainId(mbox, messageItem);
+                            // push new message correct chain id to db
+                            manager.UpdateMessageChainId(mbox, messageItem.Id, MailFolder.Ids.temp, draftChainId,
+                                                            messageItem.ChainId);
+
+                            manager.UpdateCrmLinkedChainId(mbox.MailBoxId, tenant, draftChainId,
+                                                            messageItem.ChainId);
+
+                            // move to_addresses sent
+                            manager.SetConversationsFolder(tenant, username, MailFolder.Ids.sent,
+                                                            new List<int> { (Int32)messageItem.Id });
+                            manager.SetMessageFolderRestore(tenant, username, MailFolder.Ids.sent,
+                                                            (int)messageItem.Id);
+
+                            manager.AddRelationshipEventForLinkedAccounts(mbox, messageItem, log);
+
+                            manager.SaveEmailInData(mbox, messageItem, log);
+
+                            manager.SaveMailContacts(mbox.TenantId, mbox.UserId, mimeMessage);
+
+                            StoreMessageToImapSentFolder(mbox, mimeMessage);
+                        }
+                        catch (Exception ex)
+                        {
+                            log.Error("Unexpected Error in Send(), message_item.Id = {0}, {1}, {2}",
+                                messageItem.Id, ex.ToString(), ex.StackTrace);
+                        }
+                    });
             }
             else
             {
                 throw new ArgumentException("Failed to_addresses save draft");
             }
 
-            return message_item.Id > 0 ? (Int32)message_item.Id : 1; // Callback in api will be raised if value > 0
+            return messageItem.Id > 0 ? (Int32) messageItem.Id : 1; // Callback in api will be raised if value > 0
         }
 
-
-        //Todo: Remove useless parameters from this method
-        private void AddNotificationAlertToMailbox(int tenant_id, string username, MailSendItem item,
-                                                   MailMessageItem result_message, Exception ex, MailBox mbox)
+        public void SendMailNotification(int tenant, string userId, int state)
         {
             try
             {
-                var sb_message = new StringBuilder(1024);
-                var message_delivery = new MailSendItem {Subject = MailApiResource.DeliveryFailureSubject};
-                message_delivery.To.Add(item.From);
-                message_delivery.From = MailBoxManager.MAIL_DAEMON_EMAIL;
-                message_delivery.Important = true;
-                message_delivery.StreamId = manager.CreateNewStreamId();
-                sb_message.Append(@"<style>
+                // send success notification
+                _signalrServiceClient.SendMailNotification(tenant, userId, state);
+            }
+            catch (Exception ex)
+            {
+                log.Error("Unexpected error with wcf signalrServiceClient: {0}, {1}", ex.Message, ex.StackTrace);
+            }
+        }
+
+        public List<string> NoImapSendSyncServers
+        {
+            get
+            {
+                var config = ConfigurationManager.AppSettings["mail.no-imap-send-sync-servers"] ?? "";
+                return string.IsNullOrEmpty(config) ? new List<string>() : config.Split('|').ToList();
+            }
+        }
+
+        private void StoreMessageToImapSentFolder(MailBox mbox, Message mimeMessage)
+        {
+            if (mimeMessage == null || !mbox.Imap || NoImapSendSyncServers.Contains(mbox.Server))
+                return;
+            
+            var imap = MailClientBuilder.Imap();
+            try
+            {
+                imap.AuthenticateImap(mbox, log);
+
+                // reverse folders and order them to download tagged incoming messages first
+                // gmail returns tagged letters in mailboxes & duplicate them in inbox
+                // to retrieve tags - first we need to download files from "sub" mailboxes
+                var sentFolder =
+                    imap.GetImapMailboxes(mbox.Server, MailQueueItemSettings.SpecialDomainFolders,
+                                          MailQueueItemSettings.SkipImapFlags, MailQueueItemSettings.ImapFlags)
+                        .FirstOrDefault(m => m.folder_id == MailFolder.Ids.sent);
+
+                if (sentFolder == null)
+                    throw new InvalidDataException(String.Format("Cannot find Sent folder over Imap. MailboxId={0}",
+                                                                 mbox.MailBoxId));
+                
+                var mailbox = imap.SelectMailbox(sentFolder.name);
+
+                var flags = new FlagCollection {"Seen"};
+
+                var response = mailbox.Append(mimeMessage, flags);
+
+                log.Info("StoreMessageToImapSentFolder() in MailboxId={0} successed! Returned: '{0}'", response);
+            }
+            catch (Exception ex)
+            {
+                log.Error("StoreMessageToSentFolder() in MailboxId={0} failed with exception:\r\n{1}",
+                           mbox.MailBoxId, ex.ToString());
+            }
+            finally
+            {
+                try
+                {
+                    if (imap.IsConnected)
+                    {
+                        imap.Disconnect();
+                    }
+                }
+                catch
+                {
+                }
+            }
+        }
+
+        private void AddNotificationAlertToMailbox(MailSendItem originalMessage, int mailId, Exception exOnSanding, MailBox mbox)
+        {
+            try
+            {
+                var sbMessage = new StringBuilder(1024);
+                var messageDelivery = new MailSendItem {Subject = MailApiResource.DeliveryFailureSubject};
+                messageDelivery.To.Add(originalMessage.From);
+                messageDelivery.From = MailBoxManager.MAIL_DAEMON_EMAIL;
+                messageDelivery.Important = true;
+                messageDelivery.StreamId = manager.CreateNewStreamId();
+                sbMessage.Append(@"<style>
                                             .button.blue:hover {
                                             color: white;
                                             background: #57A7D3;
@@ -250,164 +358,142 @@ namespace ASC.Api.Mail
                                             }
                                             </style>");
 
-                sb_message.AppendFormat("<div style=\"max-width:500px;\"><p style=\"color:gray;\">{0}</p>",
+                sbMessage.AppendFormat("<div style=\"max-width:500px;\"><p style=\"color:gray;\">{0}</p>",
                                         MailApiResource.DeliveryFailureAutomaticMessage);
 
-                sb_message.AppendFormat("<p>{0}</p>",
+                sbMessage.AppendFormat("<p>{0}</p>",
                                         MailApiResource.DeliveryFailureMessageIdentificator
-                                                       .Replace("{subject}", item.Subject)
+                                                       .Replace("{subject}", originalMessage.Subject)
                                                        .Replace("{date}", DateTime.Now.ToString(CultureInfo.InvariantCulture)));
 
-                sb_message.AppendFormat("<div><p>{0}:</p><ul style=\"color:#333;\">",
+                sbMessage.AppendFormat("<div><p>{0}:</p><ul style=\"color:#333;\">",
                                         MailApiResource.DeliveryFailureRecipients);
 
-                item.To.ForEach(rcpt =>sb_message.AppendFormat("<li>{0}</li>", HttpUtility.HtmlEncode(rcpt)));
-                item.Cc.ForEach(rcpt =>sb_message.AppendFormat("<li>{0}</li>", HttpUtility.HtmlEncode(rcpt)));
-                item.Bcc.ForEach(rcpt =>sb_message.AppendFormat("<li>{0}</li>", HttpUtility.HtmlEncode(rcpt)));
+                originalMessage.To.ForEach(rcpt =>sbMessage.AppendFormat("<li>{0}</li>", HttpUtility.HtmlEncode(rcpt)));
+                originalMessage.Cc.ForEach(rcpt =>sbMessage.AppendFormat("<li>{0}</li>", HttpUtility.HtmlEncode(rcpt)));
+                originalMessage.Bcc.ForEach(rcpt =>sbMessage.AppendFormat("<li>{0}</li>", HttpUtility.HtmlEncode(rcpt)));
 
-                sb_message.AppendFormat("</ul>");
+                sbMessage.AppendFormat("</ul>");
 
-                sb_message.AppendFormat("<p>{0}</p>",
+                sbMessage.AppendFormat("<p>{0}</p>",
                                         MailApiResource.DeliveryFailureRecommendations
-                                                       .Replace("{account_name}", "<b>" + item.From + "</b>"));
+                                                       .Replace("{account_name}", "<b>" + originalMessage.From + "</b>"));
 
-                sb_message.AppendFormat(
+                sbMessage.AppendFormat(
                     "<a id=\"delivery_failure_button\" mailid={0} class=\"button blue\" style=\"margin-right:8px;\">",
-                    result_message.Id);
-                sb_message.Append(MailApiResource.DeliveryFailureBtn + "</a></div>");
+                    mailId);
+                sbMessage.Append(MailApiResource.DeliveryFailureBtn + "</a></div>");
 
-                sb_message.AppendFormat("<p>{0}</p>",
+                sbMessage.AppendFormat("<p>{0}</p>",
                                         MailApiResource.DeliveryFailureFAQInformation
                                                        .Replace("{url_begin}",
                                                                 "<a id=\"delivery_failure_faq_link\" target=\"blank\" href=\"#gmail\">")
                                                        .Replace("{url_end}", "</a>"));
 
-                var last_dot_index = ex.Message.LastIndexOf('.');
-                var smtp_response = ex.Message;
+                var lastDotIndex = exOnSanding.Message.LastIndexOf('.');
+                var smtpResponse = exOnSanding.Message;
 
-                if (last_dot_index != -1 && last_dot_index != smtp_response.Length)
+                if (lastDotIndex != -1 && lastDotIndex != smtpResponse.Length)
                 {
                     try
                     {
-                        smtp_response = smtp_response.Remove(last_dot_index + 1, smtp_response.Length - last_dot_index - 1);
+                        smtpResponse = smtpResponse.Remove(lastDotIndex + 1, smtpResponse.Length - lastDotIndex - 1);
                     }
                     catch (Exception)
                     {
                     }
                 }
 
-                sb_message.AppendFormat(
-                    "<p style=\"color:gray;\">" + MailApiResource.DeliveryFailureReason + ": \"{0}\"</p></div>", smtp_response);
+                sbMessage.AppendFormat(
+                    "<p style=\"color:gray;\">" + MailApiResource.DeliveryFailureReason + ": \"{0}\"</p></div>", smtpResponse);
 
-                message_delivery.HtmlBody = sb_message.ToString();
+                messageDelivery.HtmlBody = sbMessage.ToString();
                 // SaveToDraft To Inbox
-                var notify_message_item = message_delivery.ToMailMessageItem(tenant_id, username);
-                notify_message_item.MessageId = manager.CreateMessageId();
-                notify_message_item.ChainId = notify_message_item.MessageId;
-                notify_message_item.IsNew = true;
-                notify_message_item.IsFromCRM = false;
-                notify_message_item.IsFromTL = false;
+                var notifyMessageItem = messageDelivery.ToMailMessageItem(mbox.TenantId, mbox.UserId);
+                notifyMessageItem.ChainId = notifyMessageItem.MimeMessageId;
+                notifyMessageItem.IsNew = true;
+                notifyMessageItem.IsFromCRM = false;
+                notifyMessageItem.IsFromTL = false;
 
-                manager.StoreMailBody(mbox.TenantId, mbox.UserId, notify_message_item);
+                manager.StoreMailBody(mbox.TenantId, mbox.UserId, notifyMessageItem);
 
-// ReSharper disable UnusedVariable
-                var id_mail = manager.MailSave(mbox, notify_message_item, 0, MailFolder.Ids.inbox, MailFolder.Ids.inbox,
-                                                string.Empty, string.Empty, false);
-// ReSharper restore UnusedVariable
+                manager.MailSave(mbox, notifyMessageItem, 0, MailFolder.Ids.inbox, MailFolder.Ids.inbox, string.Empty, string.Empty, false);
 
                     manager.CreateDeliveryFailureAlert(mbox.TenantId,
                                                         mbox.UserId,
-                                                        item.Subject,
-                                                        item.From,
-                                                        (Int32) result_message.Id);
+                                                        originalMessage.Subject,
+                                                        originalMessage.From,
+                                                        mailId);
             }
-            catch
+            catch(Exception exError)
             {
-                //TODO: add log here
+                log.Error("AddNotificationAlertToMailbox() in MailboxId={0} failed with exception:\r\n{1}",
+                           mbox.MailBoxId, exError.ToString());
             }
         }
 
-        public MailMessageItem SaveToDraft(int tenant_id, string username, MailSendItem item, int mail_id)
+        public MailMessageItem SaveToDraft(int tenant, string user, MailSendItem originalMessage, int mailId, int mailboxId)
         {
-            string mime_message_id;
-            string in_reply_to;
-            return SaveToDraft(tenant_id, username, item, mail_id, out mime_message_id, out in_reply_to);
-        }
-
-        private MailMessageItem SaveToDraft(int tenant_id, string username, MailSendItem item, int mail_id,
-                                     out string mime_message_id, out string in_reply_to)
-        {
-            var mbox = manager.GetMailBox(tenant_id, username, new MailAddress(item.From));
+            var mbox = manager.GetUnremovedMailBox(mailboxId);
 
             if (mbox == null)
                 throw new ArgumentException("no such mailbox");
 
-            return SaveToDraft(tenant_id, username, item, mail_id, out mime_message_id, out in_reply_to, mbox);
+            originalMessage.MailboxId = mbox.MailBoxId;
+
+            return SaveToDraft(originalMessage, mailId, mbox);
         }
 
-        private MailMessageItem SaveToDraft(int tenant_id, string username, MailSendItem item, int mail_id,
-                                     out string mime_message_id, out string in_reply_to, MailBox mbox)
+        private MailMessageItem SaveToDraft(MailSendItem originalMessage, int mailId, MailBox mbox)
         {
-            item.DisplayName = mbox.Name;
-            var embeded_attachments_for_saving = item.ChangeEmbededAttachmentLinksForStoring(tenant_id, username, mail_id, manager);
-            var message_item = item.ToMailMessageItem(tenant_id, username);
-            message_item.IsNew = false;
-            message_item.Folder = MailFolder.Ids.drafts;
+            originalMessage.DisplayName = mbox.Name;
+            var embededAttachmentsForSaving = originalMessage.ChangeEmbededAttachmentLinksForStoring(mbox.TenantId, mbox.UserId, mailId, manager);
+            var messageItem = originalMessage.ToMailMessageItem(mbox.TenantId, mbox.UserId);
+            messageItem.IsNew = false;
+            messageItem.Folder = MailFolder.Ids.drafts;
 
-            mime_message_id = mail_id == 0 ? manager.CreateMessageId() : manager.GetMimeMessageIdByMessageId(mail_id);
-            in_reply_to = item.ReplyToId != 0 ? manager.GetMimeMessageIdByMessageId(item.ReplyToId) : "";
+            messageItem.ChainId = messageItem.MimeMessageId;
 
-            if (!string.IsNullOrEmpty(mime_message_id))
+            var needToRestoreAttachmentsFromFckLocation = mailId == 0 && messageItem.Attachments.Any();
+            if (needToRestoreAttachmentsFromFckLocation)
             {
-                message_item.MessageId = mime_message_id;
-            }
-            if (!string.IsNullOrEmpty(in_reply_to))
-            {
-                message_item.InReplyTo = in_reply_to;
+                messageItem.Attachments.ForEach(attachment => manager.StoreAttachmentCopy(mbox.TenantId, mbox.UserId, attachment, originalMessage.StreamId));
             }
 
-            message_item.ChainId = message_item.MessageId;
+            manager.StoreMailBody(mbox.TenantId, mbox.UserId, messageItem);
 
-            var need_to_restore_attachments_from_fck_location = mail_id == 0 && message_item.Attachments.Any();
-            if (need_to_restore_attachments_from_fck_location)
-            {
-                message_item.Attachments.ForEach(attachment => manager.StoreAttachmentCopy(tenant_id, username, attachment, item.StreamId));
-            }
-
-            manager.StoreMailBody(mbox.TenantId, mbox.UserId, message_item);
-
-            var previous_mailbox_id = mail_id == 0
+            var previousMailboxId = mailId == 0
                                           ? mbox.MailBoxId
-                                          : manager.GetMailInfo(tenant_id, username, mail_id, false, false).MailboxId;
+                                          : manager.GetMailInfo(mbox.TenantId, mbox.UserId, mailId, false, false).MailboxId;
 
-            mail_id = manager.MailSave(mbox, message_item, mail_id, message_item.Folder, message_item.Folder, string.Empty, string.Empty, false);
-            message_item.Id = mail_id;
+            mailId = manager.MailSave(mbox, messageItem, mailId, messageItem.Folder, messageItem.Folder, string.Empty, string.Empty, false);
+            messageItem.Id = mailId;
 
-            if (previous_mailbox_id != mbox.MailBoxId)
+            if (previousMailboxId != mbox.MailBoxId)
             {
-                manager.UpdateChain(message_item.ChainId, message_item.Folder, previous_mailbox_id, tenant_id, username);
+                manager.UpdateChain(messageItem.ChainId, messageItem.Folder, previousMailboxId, mbox.TenantId, mbox.UserId);
             }
 
-            if (mail_id > 0 && need_to_restore_attachments_from_fck_location)
+            if (mailId > 0 && needToRestoreAttachmentsFromFckLocation)
             {
-                foreach (var attachment in message_item.Attachments)
+                foreach (var attachment in messageItem.Attachments)
                 {
-                    var new_id = manager.SaveAttachment(tenant_id, mail_id, attachment);
-                    attachment.fileId = new_id;
+                    var newId = manager.SaveAttachment(mbox.TenantId, mailId, attachment);
+                    attachment.fileId = newId;
                 }
             }
 
-            if (mail_id > 0 && embeded_attachments_for_saving.Any())
+            if (mailId > 0 && embededAttachmentsForSaving.Any())
             {
-                manager.SaveAttachments(tenant_id, mail_id, embeded_attachments_for_saving);
+                manager.SaveAttachments(mbox.TenantId, mailId, embededAttachmentsForSaving);
             }
 
-            manager.UpdateChain(message_item.ChainId, message_item.Folder, mbox.MailBoxId, mbox.TenantId, mbox.UserId);
+            manager.UpdateChain(messageItem.ChainId, messageItem.Folder, mbox.MailBoxId, mbox.TenantId, mbox.UserId);
 
-            if (previous_mailbox_id != mbox.MailBoxId)
-                manager.UpdateCrmLinkedMailboxId(message_item.ChainId, tenant_id, previous_mailbox_id, mbox.MailBoxId);
+            if (previousMailboxId != mbox.MailBoxId)
+                manager.UpdateCrmLinkedMailboxId(messageItem.ChainId, mbox.TenantId, previousMailboxId, mbox.MailBoxId);
 
-            return message_item;
+            return messageItem;
         }
     }
 }

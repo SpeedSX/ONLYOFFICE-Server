@@ -16,6 +16,7 @@
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA 
 
 using System.Linq;
+using System.Net.Mail;
 using System.Text.RegularExpressions;
 #if !PocketPC
 using System.Security.Cryptography.Pkcs;
@@ -547,24 +548,24 @@ namespace ActiveUp.Net.Mail
             try
             {
                 // Separate header and body.
-                var header_end = _regxHeaderEnd.Match(data).Index + 1;
-                var body_start = _regxBodyStart.Match(data).Index; 
+                var headerEnd = _regxHeaderEnd.Match(data).Index + 1;
+                var bodyStart = _regxBodyStart.Match(data).Index; 
 
                 //TODO: remove this workaround
-                if (body_start == 0)
+                if (bodyStart == 0)
                 {
                     //bodyStart = data.IndexOf("\r\n\r\n");
                     // Fix for a bug - the bodyStart was -1 (Invalid), MCALADO: 04/07/2008
-                    var index_body = data.IndexOf("\r\n\r\n", StringComparison.Ordinal);
-                    if (index_body > 0)
+                    var indexBody = data.IndexOf("\r\n\r\n", StringComparison.Ordinal);
+                    if (indexBody > 0)
                     {
-                        body_start = index_body;
+                        bodyStart = indexBody;
                     }
                 }
 
-                if (data.Length >= header_end)
+                if (data.Length >= headerEnd)
                 {
-                    var header = data.Substring(0, header_end);
+                    var header = data.Substring(0, headerEnd);
 
                     header = Unfold(header);
 
@@ -583,26 +584,28 @@ namespace ActiveUp.Net.Mail
                         {
                             part.ContentDisposition = GetContentDisposition(m.Value);
                         }
-                        part.HeaderFields.Add(
-                            FormatFieldName(m.Value.Substring(0, m.Value.IndexOf(':'))),
-                            Codec.RFC2047Decode(m.Value.Substring(m.Value.IndexOf(':') + 1).Trim(' ', '\r', '\n')).Trim('\n'));
-                        part.HeaderFieldNames.Add(
-                            FormatFieldName(m.Value.Substring(0, m.Value.IndexOf(':'))),
-                            Codec.RFC2047Decode(m.Value.Substring(0, m.Value.IndexOf(':')).Trim(' ', '\r', '\n')).Trim('\n'));
+
+                        var commaIndex = m.Value.IndexOf(':');
+                        var name = FormatFieldName(m.Value.Substring(0, commaIndex));
+                        var value = Codec.RFC2047Decode(m.Value.Substring(commaIndex + 1).Trim(' ', '\r', '\n')).Trim('\n');
+
+                        part.HeaderFields.Add(name, value);
+                        part.HeaderFieldNames.Add(name, value);
+
                         m = m.NextMatch();
                     }
 
-                    var is_multipart = part.ContentType.Type.ToLower().Equals("multipart");
+                    var isMultipart = part.ContentType.Type.ToLower().Equals("multipart");
 
                     // Store the (maybe still encoded) body.
-                    part.TextContent = is_multipart ? 
+                    part.TextContent = isMultipart ? 
                         string.Empty :
-                        (body_start < data.Length ? data.Substring(body_start) : string.Empty);
+                        (bodyStart < data.Length ? data.Substring(bodyStart) : string.Empty);
 
                     // Build the part tree.
 
                     // This is a container part.
-                    if (is_multipart)
+                    if (isMultipart)
                     {
                         ParseSubParts(ref part, ref data, message);
                     }
@@ -623,7 +626,7 @@ namespace ActiveUp.Net.Mail
                     //    }
                     //}
 
-                    if (!is_multipart) 
+                    if (!isMultipart) 
                         DecodePartBody(ref part);
 
                     try
@@ -801,6 +804,112 @@ namespace ActiveUp.Net.Mail
                 if (HeaderFieldParsing != null)
                     HeaderFieldParsing(null, header);
             }
+        }
+
+        private static readonly Regex RegxHeader = new Regex(@"[\s\S]+?((?=\r?\n\r?\n)|\Z)", RegexOptions.Compiled | RegexOptions.CultureInvariant);
+        private static readonly Regex RegxUnfold = new Regex(@"\r?\n(?=[ \t])", RegexOptions.Compiled | RegexOptions.CultureInvariant);
+        private static readonly Regex RegxHeaderLines = new Regex(@"(?<=((\r?\n)|\n)|\A)\S+:(.|(\r?\n[\t ]))+(?=((\r?\n)\S)|\Z)", RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+        public static bool TryParseDefectiveHeader(string origanal_header_data, out Header header)
+        {
+            if (string.IsNullOrEmpty(origanal_header_data))
+            {
+                header = null;
+                return false;
+            }
+
+            var header_bytes = Encoding.GetEncoding("iso-8859-1").GetBytes(origanal_header_data);
+
+            header = new Header { OriginalData = header_bytes };
+
+            var hdr = origanal_header_data;
+
+            hdr = RegxHeader.Match(hdr).Value;
+            hdr = RegxUnfold.Replace(hdr, "");
+
+            var m = RegxHeaderLines.Match(hdr);
+            while (m.Success)
+            {
+                try
+                {
+                    var name = FormatFieldName(m.Value.Substring(0, m.Value.IndexOf(':')));
+                    var value =
+                        Codec.RFC2047Decode(m.Value.Substring(m.Value.IndexOf(":", StringComparison.Ordinal) + 1))
+                             .Trim('\r', '\n')
+                             .TrimStart(' ');
+
+                    if (name.Equals("received"))
+                    {
+                        TraceInfo trace;
+                        if (TryParseTrace(m.Value.Trim(' '), out trace))
+                        {
+                            header.Trace.Add(trace);
+                        }
+                    }
+                    else if (name.Equals("to"))
+                    {
+                        var address_collection = new AddressCollection();
+                        TryParseAddresses(value, out address_collection);
+                        header.To = address_collection;
+                    }
+                    else if (name.Equals("cc"))
+                    {
+                        AddressCollection address_collection;
+                        if (TryParseAddresses(value, out address_collection))
+                        {
+                            header.Cc = address_collection;
+                        }
+                    }
+                    else if (name.Equals("bcc"))
+                    {
+                        AddressCollection address_collection;
+                        if (TryParseAddresses(value, out address_collection))
+                        {
+                            header.Bcc = address_collection;
+                        }
+                    }
+                    else if (name.Equals("reply-to"))
+                    {
+                        Address address;
+                        if (TryParseAddress(value, out address))
+                        {
+                            header.ReplyTo = address;
+                        }
+                    }
+                    else if (name.Equals("from"))
+                    {
+                        Address address;
+                        if (TryParseAddress(value, out address))
+                        {
+                            header.From = address;
+                        }
+                    }
+                    else if (name.Equals("sender"))
+                    {
+                        Address address;
+                        if (TryParseAddress(value, out address))
+                        {
+                            header.Sender = address;
+                        }
+                    }
+                    else if (name.Equals("content-type"))
+                    {
+                        header.ContentType = GetContentType(m.Value);
+                    }
+                    else if (name.Equals("content-disposition"))
+                    {
+                        header.ContentDisposition = GetContentDisposition(m.Value);
+                    }
+
+                    header.HeaderFields.Add(name, value);
+                    header.HeaderFieldNames.Add(name, m.Value.Substring(0, m.Value.IndexOf(':')));
+                }
+                catch { }
+
+                m = m.NextMatch();
+            }
+
+            return true;
         }
 
         /// <summary>
@@ -986,13 +1095,21 @@ namespace ActiveUp.Net.Mail
                 DispatchParts(ref message);
 
                 // Check message for text limit
-                const int message_limit = 204800; // 200kb
+                const int message_limit = 500000; // 500kb
 
                 if (!string.IsNullOrEmpty(message.BodyHtml.Text))
                 {
-                    if (message.BodyHtml.Text.Length > message_limit || IsHtmlTooComplex(message.BodyHtml.Text))
+                    if (message.BodyHtml.Text.Length > message_limit)
                     {
-                        message.AddAttachmentFromString("original_message.html", message.BodyHtml.Text);
+                        var charset = (!string.IsNullOrEmpty(message.BodyHtml.Charset) ? message.BodyHtml.Charset : "iso-8859-1");
+
+                        message.AddAttachmentFromString("original_message.html",
+                                                        string.Format(
+                                                            "<html><head><meta http-equiv=\"Content-Type\" content=\"text/html; charset={0}\"></head><body>{1}</body><html>",
+                                                            charset,
+                                                            message.BodyHtml.Text),
+                                                        Encoding.GetEncoding(charset));
+                    
 
                         // To long message's html body.
                         message.BodyHtml.Text =
@@ -1002,7 +1119,9 @@ namespace ActiveUp.Net.Mail
                 }
                 else if (message.BodyText.Text.Length > message_limit)
                 {
-                    message.AddAttachmentFromString("original_message.txt", message.BodyText.Text);
+                    var charset = (!string.IsNullOrEmpty(message.BodyHtml.Charset) ? message.BodyHtml.Charset : "iso-8859-1");
+
+                    message.AddAttachmentFromString("original_message.txt", message.BodyText.Text, Encoding.GetEncoding(charset));
                     
                     // To long message's text body.
                     var text_view = message.BodyText.Text.Substring(0, message_limit);
@@ -1011,6 +1130,8 @@ namespace ActiveUp.Net.Mail
 
                     message.BodyText.Text = text_view;
                 }
+
+                message.OriginalData = Encoding.GetEncoding("iso-8859-1").GetBytes(msg);
             }
             catch (Exception ex)
             {
@@ -1170,17 +1291,83 @@ namespace ActiveUp.Net.Mail
                         //This needed because only last match is email. SAmple name: name<teamlab>endname<teamlab@teamlab.com>.
                         //Two matches: <teamlab>, <teamlab@teamlab.com> - only last match - email.
                         // if format like name<teamlab@teamlab.com>endname<teamlab>.Its incorrect address.
-                        address.Email =  match.Value.TrimStart('<').TrimEnd('>');    
+                        address.Email = match.Value.TrimStart('<').TrimEnd('>');
                     }
-                    
+
                     address.Name = input.Replace("<" + address.Email + ">", "");
                     address.Email = Clean(RemoveWhiteSpaces(address.Email));
                     if (address.Name.IndexOf("\"", StringComparison.Ordinal) == -1) address.Name = Clean(address.Name);
-                    address.Name = address.Name.Trim(new[] { ' ', '\"' });
+                    address.Name = address.Name.Trim(new[] {' ', '\"'});
                 }
                 return address;
             }
-            catch { return new Address(input); }
+            catch
+            {
+                var addr = new MailAddress(input);
+                return new Address(addr.Address, addr.DisplayName);
+            }
+        }
+
+        public static bool TryParseTrace(string input, out TraceInfo trace_info)
+        {
+            trace_info = null;
+            try
+            {
+                trace_info = ParseTrace(input);
+                return true;
+            }
+            catch { }
+
+            return false;
+        }
+
+        public static bool TryParseAddress(string input, out Address address)
+        {
+            address = null;
+            try
+            {
+                address = ParseAddress(input);
+                return true;
+            }
+            catch { }
+
+            return false;
+        }
+
+        public static bool TryParseAddresses(string input, out AddressCollection addresses)
+        {
+            addresses = new AddressCollection();
+            try
+            {
+                var comma_separated = input.Split(',');
+                for (var i = 0; i < comma_separated.Length; i++)
+                    if (comma_separated[i].IndexOf("@", StringComparison.Ordinal) == -1 && comma_separated.Length > (i + 1))
+                        comma_separated[i + 1] = comma_separated[i] + comma_separated[i + 1];
+
+                foreach (var t in comma_separated.Where(t => t.IndexOf("@", StringComparison.Ordinal) != -1))
+                {
+                    var address_string = (
+                                         t.IndexOf("<", StringComparison.Ordinal) != -1 &&
+                                         t.IndexOf(":", StringComparison.Ordinal) != -1 &&
+                                         t.IndexOf(":", StringComparison.Ordinal) <
+                                         t.IndexOf("<", StringComparison.Ordinal)
+                                         ? ((t.Split(':')[0].IndexOf("\"", StringComparison.Ordinal) == -1)
+                                                ? t.Split(':')[1]
+                                                : t)
+                                         : t);
+
+                    Address address;
+                    if (TryParseAddress(address_string, out address))
+                    {
+                        addresses.Add(address);
+                    }
+                }
+
+                return true;
+            }
+            catch { }
+
+            return false;
         }
 
         #endregion

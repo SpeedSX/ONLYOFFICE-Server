@@ -1,30 +1,28 @@
 /*
-(c) Copyright Ascensio System SIA 2010-2014
-
-This program is a free software product.
-You can redistribute it and/or modify it under the terms 
-of the GNU Affero General Public License (AGPL) version 3 as published by the Free Software
-Foundation. In accordance with Section 7(a) of the GNU AGPL its Section 15 shall be amended
-to the effect that Ascensio System SIA expressly excludes the warranty of non-infringement of 
-any third-party rights.
-
-This program is distributed WITHOUT ANY WARRANTY; without even the implied warranty 
-of MERCHANTABILITY or FITNESS FOR A PARTICULAR  PURPOSE. For details, see 
-the GNU AGPL at: http://www.gnu.org/licenses/agpl-3.0.html
-
-You can contact Ascensio System SIA at Lubanas st. 125a-25, Riga, Latvia, EU, LV-1021.
-
-The  interactive user interfaces in modified source and object code versions of the Program must 
-display Appropriate Legal Notices, as required under Section 5 of the GNU AGPL version 3.
- 
-Pursuant to Section 7(b) of the License you must retain the original Product logo when 
-distributing the program. Pursuant to Section 7(e) we decline to grant you any rights under 
-trademark law for use of our trademarks.
- 
-All the Product's GUI elements, including illustrations and icon sets, as well as technical writing
-content are licensed under the terms of the Creative Commons Attribution-ShareAlike 4.0
-International. See the License terms at http://creativecommons.org/licenses/by-sa/4.0/legalcode
+ *
+ * (c) Copyright Ascensio System Limited 2010-2015
+ *
+ * This program is freeware. You can redistribute it and/or modify it under the terms of the GNU 
+ * General Public License (GPL) version 3 as published by the Free Software Foundation (https://www.gnu.org/copyleft/gpl.html). 
+ * In accordance with Section 7(a) of the GNU GPL its Section 15 shall be amended to the effect that 
+ * Ascensio System SIA expressly excludes the warranty of non-infringement of any third-party rights.
+ *
+ * THIS PROGRAM IS DISTRIBUTED WITHOUT ANY WARRANTY; WITHOUT EVEN THE IMPLIED WARRANTY OF MERCHANTABILITY OR
+ * FITNESS FOR A PARTICULAR PURPOSE. For more details, see GNU GPL at https://www.gnu.org/copyleft/gpl.html
+ *
+ * You can contact Ascensio System SIA by email at sales@onlyoffice.com
+ *
+ * The interactive user interfaces in modified source and object code versions of ONLYOFFICE must display 
+ * Appropriate Legal Notices, as required under Section 5 of the GNU GPL version 3.
+ *
+ * Pursuant to Section 7 § 3(b) of the GNU GPL you must retain the original ONLYOFFICE logo which contains 
+ * relevant author attributions when distributing the software. If the display of the logo in its graphic 
+ * form is not reasonably feasible for technical reasons, you must include the words "Powered by ONLYOFFICE" 
+ * in every copy of the program you distribute. 
+ * Pursuant to Section 7 § 3(e) we decline to grant you any rights under trademark law for use of our trademarks.
+ *
 */
+
 
 using System;
 using System.Collections.Generic;
@@ -38,6 +36,7 @@ using ASC.MessagingSystem;
 using ASC.Specific;
 using ASC.Api.CRM.Wrappers;
 using System.Security;
+using ASC.Web.CRM.Resources;
 
 namespace ASC.Api.CRM
 {
@@ -46,7 +45,7 @@ namespace ASC.Api.CRM
         /// <summary>
         ///  Returns the list of all tags associated with the entity with the ID and type specified in the request
         /// </summary>
-        /// <param name="entityType">Entity type</param>
+        /// <param name="entityType" remark="Allowed values: contact,opportunity,case">Entity type</param>
         /// <param name="entityid">Entity ID</param>
         /// <short>Get entity tags</short> 
         /// <category>Tags</category>
@@ -54,7 +53,7 @@ namespace ASC.Api.CRM
         ///   Tag
         /// </returns>
         ///<exception cref="ArgumentException"></exception>
-        [Read("{entityType:(contact|opportunity|case)}/tag/{entityid:[0-9]+}")]
+        [Read(@"{entityType:(contact|opportunity|case)}/tag/{entityid:[0-9]+}")]
         public IEnumerable<string> GetEntityTags(string entityType, int entityid)
         {
             if (string.IsNullOrEmpty(entityType) || entityid <= 0) throw new ArgumentException();
@@ -107,7 +106,7 @@ namespace ASC.Api.CRM
         /// <summary>
         ///  Creates the tag for the selected entity with the tag name specified in the request
         /// </summary>
-        /// <param name="entityType">Entity type</param>
+        /// <param name="entityType" remark="Allowed values: contact,opportunity,case">Entity type</param>
         /// <param name="tagName">Tag name</param>
         /// <short>Create tag</short> 
         /// <category>Tags</category>
@@ -115,7 +114,7 @@ namespace ASC.Api.CRM
         ///   Tag
         /// </returns>
         ///<exception cref="ArgumentException"></exception>
-        [Create("{entityType:(contact|opportunity|case)}/tag")]
+        [Create(@"{entityType:(contact|opportunity|case)}/tag")]
         public string CreateTag(string entityType, string tagName)
         {
             if (string.IsNullOrEmpty(tagName)) throw new ArgumentException();
@@ -125,7 +124,7 @@ namespace ASC.Api.CRM
             var messageAction = GetEntityTagCreatedAction(entityTypeObj);
             DaoFactory.GetTagDao().AddTag(entityTypeObj, tagName);
 
-            MessageService.Send(_context, messageAction, tagName);
+            MessageService.Send(Request, messageAction, tagName);
 
             return tagName;
         }
@@ -133,14 +132,14 @@ namespace ASC.Api.CRM
         /// <summary>
         ///  Returns the list of all tags associated with the entity type specified in the request
         /// </summary>
-        /// <param name="entityType">Entity type</param>
+        /// <param name="entityType" remark="Allowed values: contact,opportunity,case">Entity type</param>
         /// <short>Get tags for entity type</short> 
         /// <category>Tags</category>
         /// <returns>
         ///   Tag
         /// </returns>
         ///<exception cref="ArgumentException"></exception>
-        [Read("{entityType:(contact|opportunity|case)}/tag")]
+        [Read(@"{entityType:(contact|opportunity|case)}/tag")]
         public IEnumerable<TagWrapper> GetAllTags(string entityType)
         {
             if (string.IsNullOrEmpty(entityType)) throw new ArgumentException();
@@ -162,7 +161,7 @@ namespace ASC.Api.CRM
         /// </summary>
         /// <short>Add tag group to entity</short> 
         /// <category>Tags</category>
-        /// <param name="entityType">Tag type</param>
+        /// <param name="entityType" remark="Allowed values: contact,opportunity,case">Tag type</param>
         /// <param name="entityid">Entity ID</param>
         /// <param name="tagName">Tag name</param>
         /// <exception cref="ArgumentException"></exception>
@@ -312,9 +311,9 @@ namespace ASC.Api.CRM
         /// </summary>
         /// <short>Delete unused tags</short> 
         /// <category>Tags</category>
-        /// <param name="entityType">Entity type</param>
+        /// <param name="entityType" remark="Allowed values: contact,opportunity,case">Entity type</param>
         /// <returns>Tags</returns>
-        [Delete("{entityType:(contact|opportunity|case)}/tag/unused")]
+        [Delete(@"{entityType:(contact|opportunity|case)}/tag/unused")]
         public IEnumerable<string> DeleteUnusedTag(string entityType)
         {
             if (!CRMSecurity.IsAdmin) throw CRMSecurity.CreateSecurityException();
@@ -333,7 +332,7 @@ namespace ASC.Api.CRM
         /// </summary>
         /// <short>Add tag</short> 
         /// <category>Tags</category>
-        /// <param name="entityType">Entity type</param>
+        /// <param name="entityType" remark="Allowed values: contact,opportunity,case">Entity type</param>
         /// <param name="entityid">Entity ID</param>
         /// <param name="tagName">Tag name</param>
         /// <exception cref="ArgumentException"></exception>
@@ -374,11 +373,25 @@ namespace ASC.Api.CRM
             DaoFactory.GetTagDao().AddTagToEntity(entityTypeObj, entityid, tagName);
 
             var messageAction = GetTagCreatedAction(entityTypeObj, entityid);
-            MessageService.Send(_context, messageAction, entityTitle, tagName);
+            MessageService.Send(Request, messageAction, entityTitle, tagName);
 
             return tagName;
         }
 
+        /// <summary>
+        ///   Adds the selected tag to the entity (company or person) specified in the request and to all related contacts
+        /// </summary>
+        /// <short>Add tag</short> 
+        /// <param name="entityType" remark="Allowed values: company,person">Entity type</param>
+        /// <param name="entityid">Entity ID</param>
+        /// <param name="tagName">Tag name</param>
+        /// <category>Tags</category>
+        /// <exception cref="ArgumentException"></exception>
+        /// <exception cref="ItemNotFoundException"></exception>
+        /// <exception cref="Exception"></exception>
+        /// <returns>
+        ///   Tag
+        /// </returns>
         [Create(@"{entityType:(company|person)}/{entityid:[0-9]+}/tag/group")]
         public string AddContactTagToGroup(string entityType, int entityid, string tagName)
         {
@@ -390,16 +403,66 @@ namespace ASC.Api.CRM
             var contactInst = DaoFactory.GetContactDao().GetByID(entityid);
             if (contactInst == null || !CRMSecurity.CanAccessTo(contactInst)) throw new ItemNotFoundException();
 
-            if (contactInst is Person && entityTypeObj == EntityType.Company) throw new Exception("Current contact is not a company");
-            if (contactInst is Company && entityTypeObj == EntityType.Person) throw new Exception("Current contact is not a person");
+            if (contactInst is Person && entityTypeObj == EntityType.Company) throw new Exception(CRMErrorsResource.ContactIsNotCompany);
+            if (contactInst is Company && entityTypeObj == EntityType.Person) throw new Exception(CRMErrorsResource.ContactIsNotPerson);
 
-            DaoFactory.GetTagDao().AddTagToContactGroup(contactInst, tagName);
+
+            var contactIDsToAddTag = new List<int>();
+
+
+            if (contactInst is Company)
+            {
+                contactIDsToAddTag.Add(contactInst.ID);
+
+                var members = DaoFactory.GetContactDao().GetMembersIDsAndShareType(contactInst.ID);
+
+                foreach (var m in members)
+                {
+                    if (CRMSecurity.CanAccessTo(m.Key, EntityType.Person, m.Value, 0))
+                    {
+                        contactIDsToAddTag.Add(m.Key);
+                    }
+                }
+            }
+            else
+            {
+                var CompanyID = ((Person)contactInst).CompanyID;
+                if (CompanyID != 0)
+                {
+                    var cnt = DaoFactory.GetContactDao().GetByID(CompanyID);
+                    if (cnt != null && cnt is Company && CRMSecurity.CanAccessTo(cnt))
+                    {
+                        contactIDsToAddTag.Add(CompanyID);
+
+                        var members = DaoFactory.GetContactDao().GetMembersIDsAndShareType(CompanyID);
+
+                        foreach (var m in members)
+                        {
+                            if (CRMSecurity.CanAccessTo(m.Key, EntityType.Person, m.Value, 0))
+                            {
+                                contactIDsToAddTag.Add(m.Key);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        contactIDsToAddTag.Add(contactInst.ID);
+                    }
+                }
+                else
+                {
+                    contactIDsToAddTag.Add(contactInst.ID);
+                }
+            }
+
+            DaoFactory.GetTagDao().AddTagToContacts(contactIDsToAddTag.ToArray(), tagName);
+
 
             var entityTitle = contactInst.GetTitle();
             var messageActions = GetTagCreatedGroupAction(entityTypeObj);
             foreach (var messageAction in messageActions)
             {
-                MessageService.Send(_context, messageAction, entityTitle, tagName);
+                MessageService.Send(Request, messageAction, entityTitle, tagName);
             }
 
             return tagName;
@@ -409,7 +472,7 @@ namespace ASC.Api.CRM
         ///   Deletes the selected tag from the entity with the type specified in the request
         /// </summary>
         /// <short>Delete tag</short> 
-        /// <param name="entityType">Entity type</param>
+        /// <param name="entityType" remark="Allowed values: contact,opportunity,case">Entity type</param>
         /// <param name="tagName">Tag name</param>
         /// <category>Tags</category>
         /// <exception cref="ArgumentException"></exception>
@@ -417,7 +480,7 @@ namespace ASC.Api.CRM
         /// <returns>
         ///   Tag
         /// </returns>
-        [Delete("{entityType:(contact|opportunity|case)}/tag")]
+        [Delete(@"{entityType:(contact|opportunity|case)}/tag")]
         public string DeleteTag(string entityType, string tagName)
         {
             if (string.IsNullOrEmpty(entityType) || string.IsNullOrEmpty(tagName)) throw new ArgumentException();
@@ -430,7 +493,7 @@ namespace ASC.Api.CRM
             DaoFactory.GetTagDao().DeleteTag(entityTypeObj, tagName);
 
             var messageAction = GetEntityTagDeletedAction(entityTypeObj);
-            MessageService.Send(_context, messageAction, tagName);
+            MessageService.Send(Request, messageAction, tagName);
 
             return tagName;
         }
@@ -440,7 +503,7 @@ namespace ASC.Api.CRM
         /// </summary>
         /// <short>Remove tag</short> 
         /// <category>Tags</category>
-        /// <param name="entityType">Entity type</param>
+        /// <param name="entityType" remark="Allowed values: contact,opportunity,case">Entity type</param>
         /// <param name="entityid">Entity ID</param>
         /// <param name="tagName">Tag name</param>
         /// <exception cref="ArgumentException"></exception>
@@ -484,12 +547,25 @@ namespace ASC.Api.CRM
             DaoFactory.GetTagDao().DeleteTagFromEntity(entityTypeObj, entityid, tagName);
 
             var messageAction = GetTagDeletedAction(entityTypeObj, entityid);
-            MessageService.Send(_context, messageAction, entityTitle, tagName);
+            MessageService.Send(Request, messageAction, entityTitle, tagName);
 
             return tagName;
         }
 
-
+        /// <summary>
+        ///   Deletes the selected tag from the entity (company or person) specified in the request and from all related contacts
+        /// </summary>
+        /// <short>Delete tag</short> 
+        /// <param name="entityType" remark="Allowed values: company,person">Entity type</param>
+        /// <param name="entityid">Entity ID</param>
+        /// <param name="tagName">Tag name</param>
+        /// <category>Tags</category>
+        /// <exception cref="ArgumentException"></exception>
+        /// <exception cref="ItemNotFoundException"></exception>
+        /// <exception cref="Exception"></exception>
+        /// <returns>
+        ///   Tag
+        /// </returns>
         [Delete(@"{entityType:(company|person)}/{entityid:[0-9]+}/tag/group")]
         public string DeleteContactTagFromGroup(string entityType, int entityid, string tagName)
         {
@@ -501,10 +577,59 @@ namespace ASC.Api.CRM
             var contactInst = DaoFactory.GetContactDao().GetByID(entityid);
             if (contactInst == null) throw new ItemNotFoundException();
 
-            if (contactInst is Person && entityTypeObj == EntityType.Company) throw new Exception("Current contact is not a company");
-            if (contactInst is Company && entityTypeObj == EntityType.Person) throw new Exception("Current contact is not a person");
+            if (contactInst is Person && entityTypeObj == EntityType.Company) throw new Exception(CRMErrorsResource.ContactIsNotCompany);
+            if (contactInst is Company && entityTypeObj == EntityType.Person) throw new Exception(CRMErrorsResource.ContactIsNotPerson);
 
-            DaoFactory.GetTagDao().DeleteTagFromContactGroup(contactInst, tagName);
+
+
+            var contactIDsForDeleteTag = new List<int>();
+
+            if (contactInst is Company)
+            {
+                contactIDsForDeleteTag.Add(contactInst.ID);
+
+                var members = DaoFactory.GetContactDao().GetMembersIDsAndShareType(contactInst.ID);
+
+                foreach (var m in members)
+                {
+                    if (CRMSecurity.CanAccessTo(m.Key, EntityType.Person, m.Value, 0))
+                    {
+                        contactIDsForDeleteTag.Add(m.Key);
+                    }
+                }
+            }
+            else
+            {
+                var CompanyID = ((Person)contactInst).CompanyID;
+                if (CompanyID != 0)
+                {
+                    var cnt = DaoFactory.GetContactDao().GetByID(CompanyID);
+                    if (cnt != null && cnt is Company && CRMSecurity.CanAccessTo(cnt))
+                    {
+                        contactIDsForDeleteTag.Add(CompanyID);
+
+                        var members = DaoFactory.GetContactDao().GetMembersIDsAndShareType(CompanyID);
+
+                        foreach (var m in members)
+                        {
+                            if (CRMSecurity.CanAccessTo(m.Key, EntityType.Person, m.Value, 0))
+                            {
+                                contactIDsForDeleteTag.Add(m.Key);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        contactIDsForDeleteTag.Add(contactInst.ID);
+                    }
+                }
+                else
+                {
+                    contactIDsForDeleteTag.Add(contactInst.ID);
+                }
+            }
+
+            DaoFactory.GetTagDao().DeleteTagFromContacts(contactIDsForDeleteTag.ToArray(), tagName);
 
             return tagName;
         }

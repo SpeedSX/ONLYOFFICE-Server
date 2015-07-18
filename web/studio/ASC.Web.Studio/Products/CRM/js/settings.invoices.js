@@ -1,35 +1,29 @@
 /*
-(c) Copyright Ascensio System SIA 2010-2014
-
-This program is a free software product.
-You can redistribute it and/or modify it under the terms 
-of the GNU Affero General Public License (AGPL) version 3 as published by the Free Software
-Foundation. In accordance with Section 7(a) of the GNU AGPL its Section 15 shall be amended
-to the effect that Ascensio System SIA expressly excludes the warranty of non-infringement of 
-any third-party rights.
-
-This program is distributed WITHOUT ANY WARRANTY; without even the implied warranty 
-of MERCHANTABILITY or FITNESS FOR A PARTICULAR  PURPOSE. For details, see 
-the GNU AGPL at: http://www.gnu.org/licenses/agpl-3.0.html
-
-You can contact Ascensio System SIA at Lubanas st. 125a-25, Riga, Latvia, EU, LV-1021.
-
-The  interactive user interfaces in modified source and object code versions of the Program must 
-display Appropriate Legal Notices, as required under Section 5 of the GNU AGPL version 3.
- 
-Pursuant to Section 7(b) of the License you must retain the original Product logo when 
-distributing the program. Pursuant to Section 7(e) we decline to grant you any rights under 
-trademark law for use of our trademarks.
- 
-All the Product's GUI elements, including illustrations and icon sets, as well as technical writing
-content are licensed under the terms of the Creative Commons Attribution-ShareAlike 4.0
-International. See the License terms at http://creativecommons.org/licenses/by-sa/4.0/legalcode
+ *
+ * (c) Copyright Ascensio System Limited 2010-2015
+ *
+ * This program is freeware. You can redistribute it and/or modify it under the terms of the GNU 
+ * General Public License (GPL) version 3 as published by the Free Software Foundation (https://www.gnu.org/copyleft/gpl.html). 
+ * In accordance with Section 7(a) of the GNU GPL its Section 15 shall be amended to the effect that 
+ * Ascensio System SIA expressly excludes the warranty of non-infringement of any third-party rights.
+ *
+ * THIS PROGRAM IS DISTRIBUTED WITHOUT ANY WARRANTY; WITHOUT EVEN THE IMPLIED WARRANTY OF MERCHANTABILITY OR
+ * FITNESS FOR A PARTICULAR PURPOSE. For more details, see GNU GPL at https://www.gnu.org/copyleft/gpl.html
+ *
+ * You can contact Ascensio System SIA by email at sales@onlyoffice.com
+ *
+ * The interactive user interfaces in modified source and object code versions of ONLYOFFICE must display 
+ * Appropriate Legal Notices, as required under Section 5 of the GNU GPL version 3.
+ *
+ * Pursuant to Section 7 § 3(b) of the GNU GPL you must retain the original ONLYOFFICE logo which contains 
+ * relevant author attributions when distributing the software. If the display of the logo in its graphic 
+ * form is not reasonably feasible for technical reasons, you must include the words "Powered by ONLYOFFICE" 
+ * in every copy of the program you distribute. 
+ * Pursuant to Section 7 § 3(e) we decline to grant you any rights under trademark law for use of our trademarks.
+ *
 */
 
-/*
-    Copyright (c) Ascensio System SIA 2013. All rights reserved.
-    http://www.teamlab.com
-*/
+
 if (typeof ASC === "undefined") {
     ASC = {};
 }
@@ -455,7 +449,7 @@ ASC.CRM.InvoiceItemsView = (function () {
         jq.dropdownToggle({
             dropdownID: "invoiceItemsActionMenu",
             switcherSelector: "#invoiceItemsTable .entity-menu",
-            addTop: -2,
+            addTop: 0,
             addLeft: 10,
             rightPos: true,
             beforeShowFunction: function (switcherObj, dropdownItem) {
@@ -475,7 +469,7 @@ ASC.CRM.InvoiceItemsView = (function () {
         });
 
 
-        jq.tmpl("blockUIPanelTemplate", {
+        jq.tmpl("template-blockUIPanel", {
             id: "confirmationDeleteOneItemPanel",
             headerTest: ASC.CRM.Resources.CRMCommonResource.Confirmation,
             questionText: "",
@@ -616,7 +610,7 @@ ASC.CRM.InvoiceItemsView = (function () {
             ASC.CRM.Resources.CRMInvoiceResource.CreateFirstInvoiceItem,
             "</a>"].join('');
 
-        jq.tmpl("emptyScrTmpl",
+        jq.tmpl("template-emptyScreen",
             {
                 ID: "invoiceItemsEmptyScreen",
                 ImgSrc: ASC.CRM.Data.EmptyScrImgs["empty_screen_products_services"],
@@ -627,7 +621,7 @@ ASC.CRM.InvoiceItemsView = (function () {
             }).insertAfter("#invoiceItemsList");
 
         //init emptyScreen for filter
-        jq.tmpl("emptyScrTmpl",
+        jq.tmpl("template-emptyScreen",
             {
                 ID: "emptyContentForInvoiceItemsFilter",
                 ImgSrc: ASC.CRM.Data.EmptyScrImgs["empty_screen_filter"],
@@ -656,7 +650,7 @@ ASC.CRM.InvoiceItemsView = (function () {
             var exportErrorText = jq.cookies.get(exportErrorCookieKey)
             if (exportErrorText != null && exportErrorText != "") {
                 jq.cookies.del(exportErrorCookieKey);
-                jq.tmpl("blockUIPanelTemplate", {
+                jq.tmpl("template-blockUIPanel", {
                     id: "exportToCsvError",
                     headerTest: ASC.CRM.Resources.CRMCommonResource.Alert,
                     questionText: "",
@@ -1003,9 +997,12 @@ ASC.CRM.InvoiceItemActionView = (function () {
                 }
             });
             
-
-            jq.forceIntegerOnly("#crm_invoiceItemMakerDialog .invoiceItemQuantity");
-            jq.forceIntegerOnly("#crm_invoiceItemMakerDialog .invoiceItemStockQuantity");
+            jq.forceNumber({
+                parent: "#crm_invoiceItemMakerDialog",
+                input: ".invoiceItemQuantity, .invoiceItemStockQuantity",
+                integerOnly: true,
+                positiveOnly: true
+            });
 
             jq("#iventoryStockHelpSwitcher").on("click", function () {
                 jq(this).helper({ BlockHelperID: 'iventoryStockHelpInfo' });
@@ -1023,7 +1020,15 @@ ASC.CRM.InvoiceItemActionView = (function () {
             //    simpleToggle: true
             //});
 
-            jq.forceCurrencySymbolsOnly("#crm_invoiceItemMakerDialog .invoiceItemPrice", 2);
+            jq.forceNumber({
+                parent: "#crm_invoiceItemMakerDialog",
+                input: ".invoiceItemPrice",
+                integerOnly: false,
+                positiveOnly: true,
+                separator: ASC.CRM.Data.CurrencyDecimalSeparator,
+                lengthAfterSeparator: 2
+            });
+
 
             jq("#saveItemButton").click(function () {
                 _saveItem(true);
@@ -1105,7 +1110,7 @@ ASC.CRM.InvoiceTaxesView = (function () {
         jq.dropdownToggle({
             dropdownID: "invoiceTaxesActionMenu",
             switcherSelector: "#invoiceTaxesTable .entity-menu",
-            addTop: -2,
+            addTop: 0,
             addLeft: 10,
             rightPos: true,
             beforeShowFunction: function (switcherObj, dropdownItem) {
@@ -1124,7 +1129,7 @@ ASC.CRM.InvoiceTaxesView = (function () {
             }
         });
 
-        jq.tmpl("blockUIPanelTemplate", {
+        jq.tmpl("template-blockUIPanel", {
             id: "confirmationDeleteOneTaxPanel",
             headerTest: ASC.CRM.Resources.CRMCommonResource.Confirmation,
             questionText: "",
@@ -1151,7 +1156,7 @@ ASC.CRM.InvoiceTaxesView = (function () {
             ASC.CRM.Resources.CRMInvoiceResource.CreateFirstInvoiceTax,
             "</a>"].join('');
 
-        jq.tmpl("emptyScrTmpl",
+        jq.tmpl("template-emptyScreen",
             {
                 ID: "invoiceTaxesEmptyScreen",
                 ImgSrc: ASC.CRM.Data.EmptyScrImgs["empty_screen_taxes"],
@@ -1207,18 +1212,26 @@ ASC.CRM.InvoiceTaxesView = (function () {
 
     var _addOrUpdateTax = function (id) {
         var isValid = true;
+        var $obj = jq("#manageTax .taxName");
 
-        if (jq("#manageTax .taxName").val().trim() == "") {
-            ShowRequiredError(jq("#manageTax .taxName"), true);
+        if ($obj.val().trim() == "") {
+            ShowRequiredError($obj, true);
             isValid = false;
         } else {
-            RemoveRequiredErrorClass(jq("#manageTax .taxName"));
+            RemoveRequiredErrorClass($obj);
         }
-        if (jq("#manageTax .taxRate").val().trim() == "") {
-            ShowRequiredError(jq("#manageTax .taxRate"), true);
+
+        $obj = jq("#manageTax .taxRate");
+        if ($obj.val().trim() == "") {
+            AddRequiredErrorText($obj, ASC.CRM.Resources.CRMInvoiceResource.EmptyTaxRateError);
+            ShowRequiredError($obj, true);
             isValid = false;
         } else {
-            RemoveRequiredErrorClass(jq("#manageTax .taxRate"));
+            if (Math.abs($obj.val()) > 100) {
+                AddRequiredErrorText($obj, ASC.CRM.Resources.CRMInvoiceResource.ErrorIncorrectRate);
+                ShowRequiredError($obj, true);
+                isValid = false;
+            } else RemoveRequiredErrorClass($obj);
         }
         if (!isValid) { return; }
 
@@ -1295,7 +1308,7 @@ ASC.CRM.InvoiceTaxesView = (function () {
     };
 
     var _initManagePanel = function () {
-        jq.tmpl("blockUIPanelTemplate", {
+        jq.tmpl("template-blockUIPanel", {
             id: "manageTax",
             headerTest: ASC.CRM.Resources.CRMInvoiceResource.CreateInvoiceTax,
             questionText: "",
@@ -1328,7 +1341,13 @@ ASC.CRM.InvoiceTaxesView = (function () {
             {
                 success: callback_get_invoice_taxes
             });
-            jq.forceIntegerOnly("#manageTax .taxRate");
+            
+            jq.forceNumber({
+                parent: "#manageTax",
+                input: ".taxRate",
+                integerOnly: true,
+                positiveOnly: false
+            });
 
             jq("#createNewTax").on("click", function () {
                 _showAddOrUpdateTaxPanel();
@@ -1389,7 +1408,7 @@ ASC.CRM.SettingsOrganisationProfileView = (function () {
         $o.find(".contact_city").val("");
         $o.find(".contact_state").val("");
         $o.find(".contact_zip").val("");
-        $o.find(".contact_country").val($o.find(".contact_country").children(":first").val());
+        $o.find(".contact_country").val(ASC.CRM.Resources.CRMJSResource.ChooseCountry);
     };
     return {
         init: function () {
@@ -1410,7 +1429,34 @@ ASC.CRM.SettingsOrganisationProfileView = (function () {
 
             }
 
-            var $addressContacner = jq("#settings_organisation_profile .address-tbl");
+            var $addressContacner = jq("#settings_organisation_profile .address-tbl"),
+                html = ["<option value='' style='display:none;'></option>",
+                    "<option value='",
+                    ASC.CRM.Resources.CRMJSResource.ChooseCountry,
+                    "' class='default-option'>",
+                    jq.htmlEncodeLight(ASC.CRM.Resources.CRMJSResource.ChooseCountry),
+                    "</option>"].join('');
+
+            html += ["<option class='option-first-in-group-separated' value='",
+                    ASC.CRM.Data.CurrentCultureName,
+                    "'>",
+                    jq.htmlEncodeLight(ASC.CRM.Data.CurrentCultureName),
+                    "</option>"].join('');
+
+            for (var i = 0, n = ASC.CRM.Data.CountryListExt.length; i < n; i++) {
+                var elt = ASC.CRM.Data.CountryListExt[i];
+                if (ASC.CRM.Data.CurrentCultureName != elt) {
+                    html += ["<option value='",
+                        elt,
+                        "'",
+                        i == 0 ? " class='option-first-in-group-separated'": "",
+                        ">",
+                        jq.htmlEncodeLight(elt),
+                        "</option>"
+                    ].join('');
+                }
+            }
+            jq("#contactCountry").html(html).val(ASC.CRM.Resources.CRMJSResource.ChooseCountry);
 
             if (typeof (ASC.CRM.Data.InvoiceSetting.CompanyAddress) != "undefined" && ASC.CRM.Data.InvoiceSetting.CompanyAddress != null) {
                 try {
@@ -1421,7 +1467,7 @@ ASC.CRM.SettingsOrganisationProfileView = (function () {
                     $addressContacner.find(".contact_state").val(address.state);
                     $addressContacner.find(".contact_zip").val(address.zip);
                     if (address.country == "") {
-                        $addressContacner.find(".contact_country").val($addressContacner.find(".contact_country").children(":first").val());
+                        $addressContacner.find(".contact_country").val(ASC.CRM.Resources.CRMJSResource.ChooseCountry);
                     } else {
                         $addressContacner.find(".contact_country").val(address.country);
                     }
@@ -1434,8 +1480,7 @@ ASC.CRM.SettingsOrganisationProfileView = (function () {
                 _clearAddress($addressContacner);
             }
 
-            $addressContacner.find('select.contact_country').attr('name', $addressContacner.attr('selectname'));
-            jq('<option value="" style="display:none;"></option>').prependTo($addressContacner.find('select.contact_country'));
+
 
             jq("#settings_organisation_profile .save_addresses").on("click", function () {
                 if (jq("#settings_organisation_profile .save_addresses").hasClass("disable")) return;

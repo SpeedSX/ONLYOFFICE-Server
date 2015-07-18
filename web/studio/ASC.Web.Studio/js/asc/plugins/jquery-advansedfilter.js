@@ -1,32 +1,4 @@
 /*
-(c) Copyright Ascensio System SIA 2010-2014
-
-This program is a free software product.
-You can redistribute it and/or modify it under the terms 
-of the GNU Affero General Public License (AGPL) version 3 as published by the Free Software
-Foundation. In accordance with Section 7(a) of the GNU AGPL its Section 15 shall be amended
-to the effect that Ascensio System SIA expressly excludes the warranty of non-infringement of 
-any third-party rights.
-
-This program is distributed WITHOUT ANY WARRANTY; without even the implied warranty 
-of MERCHANTABILITY or FITNESS FOR A PARTICULAR  PURPOSE. For details, see 
-the GNU AGPL at: http://www.gnu.org/licenses/agpl-3.0.html
-
-You can contact Ascensio System SIA at Lubanas st. 125a-25, Riga, Latvia, EU, LV-1021.
-
-The  interactive user interfaces in modified source and object code versions of the Program must 
-display Appropriate Legal Notices, as required under Section 5 of the GNU AGPL version 3.
- 
-Pursuant to Section 7(b) of the License you must retain the original Product logo when 
-distributing the program. Pursuant to Section 7(e) we decline to grant you any rights under 
-trademark law for use of our trademarks.
- 
-All the Product's GUI elements, including illustrations and icon sets, as well as technical writing
-content are licensed under the terms of the Creative Commons Attribution-ShareAlike 4.0
-International. See the License terms at http://creativecommons.org/licenses/by-sa/4.0/legalcode
-*/
-
-/*
     Copyright (c) Ascensio System SIA 2013. All rights reserved.
     http://www.teamlab.com
 */
@@ -35,7 +7,6 @@ International. See the License terms at http://creativecommons.org/licenses/by-s
       defaultAnykeyTimeout = 500,
       currentHash = '',
       cmplClassName = 'advansed-filter-complete',
-      localStorage = {},
       templates = {
           filterContainer: 'template-filter-container',
           filterItem: 'template-filter-item'
@@ -52,12 +23,6 @@ International. See the License terms at http://creativecommons.org/licenses/by-s
         { type: 'text', id: 'text', hashmask: 'text/{0}' }
       ],
       sorterValues = [];
-
-    // IE 10 issue workaround : ToDo analize
-    try {
-        localStorage = window.localStorage || {}
-    }
-    catch (ex) { }
 
     var
       path = '/',
@@ -166,6 +131,14 @@ International. See the License terms at http://creativecommons.org/licenses/by-s
         return encodeURIComponent(key.charAt(key.length - 1) === '/' ? key + 'default.aspx' : key);
     }
 
+    function toggleHasFilters(selectedfilters, $container) {
+        if (selectedfilters.some(function (item) { return item.type != "sorter";})) {
+            $container.addClass('has-filters');
+        } else {
+            $container.removeClass('has-filters');
+        }
+    }
+
     function updateLocalStorageFilters(opts, filtervalues) {
         if (isFirstUpdateLocaleStorage === true && (filtervalues.length === 0 || (filtervalues.length === 1 && filtervalues[0].id === 'sorter'))) {
             isFirstUpdateLocaleStorage = false;
@@ -184,9 +157,7 @@ International. See the License terms at http://creativecommons.org/licenses/by-s
 
         // quota exceeded error workaround
         var key = getkey();
-        try {
-            localStorage[key] = newhash;
-        } catch (e) { }
+        localStorageManager.setItem(key, newhash);
 
         $.cookies.set(key, newhash, { path: path });
     }
@@ -195,8 +166,8 @@ International. See the License terms at http://creativecommons.org/licenses/by-s
         var values = null;
         
         var key = getkey();
-        if (localStorage[key]) {
-            values = $.base64.decode(localStorage[key]);
+        if (localStorageManager.getItem(key)) {
+            values = $.base64.decode(localStorageManager.getItem(key));
         }
         if (opts && typeof opts === 'object' && opts.inhash === true) {
             currentHash = location.hash;
@@ -400,7 +371,6 @@ International. See the License terms at http://creativecommons.org/licenses/by-s
           itemvaluesInd = 0, itemvaluesLen = 0;
 
         colcount = opts && typeof opts === 'object' && opts.hasOwnProperty('colcount') && isFinite(+opts.colcount) ? +opts.colcount : colcount;
-        html.push('<li class="item-list-top ' + type + '-list-top"></li>');
         for (itemgroupsInd = 0, itemgroupsLen = itemgroups.length; itemgroupsInd < itemgroupsLen; itemgroupsInd++) {
             if (type === 'filter' && colcount > 1) {
                 if (itemgroupsInd < colcount) {
@@ -589,11 +559,7 @@ International. See the License terms at http://creativecommons.org/licenses/by-s
             }
         }
 
-        if (selectedfilters.length > 1) {
-            $container.addClass('has-filters');
-        } else {
-            $container.removeClass('has-filters');
-        }
+        toggleHasFilters(selectedfilters, $container);
 
         updateLocalStorageFilters(opts, selectedfilters);
         if (needResetAllEvent === true) {
@@ -619,13 +585,9 @@ International. See the License terms at http://creativecommons.org/licenses/by-s
                 filtervalue = filtervalues[filtervaluesInd];
             }
         }
-
-        if (selectedfilters.length > 1) {
-            $container.addClass('has-filters');
-        } else {
-            $container.removeClass('has-filters');
-        }
-
+        
+        toggleHasFilters(selectedfilters, $container);
+        
         updateLocalStorageFilters(opts, selectedfilters);
         if (needResetAllEvent === true) {
             $container.trigger('resetallfilters', [$container, filtervalue.id, selectedfilters]);
@@ -633,6 +595,7 @@ International. See the License terms at http://creativecommons.org/licenses/by-s
         $container.trigger('resetfilter', [$container, filtervalue, selectedfilters]);
         $container.trigger('updatefilter', [$container, filtervalue.id, selectedfilters]);
     }
+
 
     function setFilterItem($container, $filteritem, filtervalue, params, nonetrigger) {
         $container.trigger('adv-setFilterItem', [$container, $filteritem, filtervalue, params, nonetrigger]);
@@ -693,7 +656,7 @@ International. See the License terms at http://creativecommons.org/licenses/by-s
             }
 
             filtervalue.isset = true;
-            resizeUserFilterContainer($container, true);
+            resizeUserFilterContainer($container);
             if (nonetrigger !== true && lazyTrigger === false) {
                 callSetFilterTrigger($container, filtervalue);
             }
@@ -1232,7 +1195,7 @@ International. See the License terms at http://creativecommons.org/licenses/by-s
           $filter = null;
 
         $filteritems.filter('[data-id="' + filterid + '"]').removeClass('hidden-item');
-        updateFiltersList($container.find('ul.filter-list:first li').not('li.item-list-top'));
+        updateFiltersList($container.find('ul.filter-list:first li'));
     }
 
     function hideUserFilterByOption($container, filterid, nonetrigger) {
@@ -1242,7 +1205,7 @@ International. See the License terms at http://creativecommons.org/licenses/by-s
           $filter = null;
 
         $filteritems.filter('[data-id="' + filterid + '"]').addClass('hidden-item');
-        updateFiltersList($container.find('ul.filter-list:first li').not('li.item-list-top'));
+        updateFiltersList($container.find('ul.filter-list:first li'));
 
         if (($filter = $selectedfilters.filter('[data-id="' + filterid + '"]')).length > 0) {
             removeUserFilterByObject($container, $filter, nonetrigger);
@@ -1257,7 +1220,7 @@ International. See the License terms at http://creativecommons.org/licenses/by-s
           $filter = null;
 
         $filteritems.filter('[data-id="' + filterid + '"]').removeClass('disabled-item');
-        updateFiltersList($container.find('ul.filter-list:first li').not('li.item-list-top'));
+        updateFiltersList($container.find('ul.filter-list:first li'));
     }
 
     function disableUserFilterByOption($container, filterid, nonetrigger) {
@@ -1267,7 +1230,7 @@ International. See the License terms at http://creativecommons.org/licenses/by-s
           $filter = null;
 
         $filteritems.filter('[data-id="' + filterid + '"]').addClass('disabled-item');
-        updateFiltersList($container.find('ul.filter-list:first li').not('li.item-list-top'));
+        updateFiltersList($container.find('ul.filter-list:first li'));
 
         if (($filter = $selectedfilters.filter('[data-id="' + filterid + '"]')).length > 0) {
             removeUserFilterByObject($container, $filter, nonetrigger);
@@ -1470,31 +1433,29 @@ International. See the License terms at http://creativecommons.org/licenses/by-s
         return false;
     }
 
-    function needHideFilters($container, $filters, $firstfilter, $lastfilter) {
+    function needHideFilters($container, $filters, $firstfilter) {
         var
-          minInputWidth = 100;
+          minInputWidth = parseInt($container.find("div.advansed-filter-input input:first").css("min-width") || 100) || 100,
+          resetBtnWidth = parseInt($container.find("div.advansed-filter-input").css("margin-right") || 0),
+          $lastfilter = $filters.children("div.filter-item:visible:last"),
+          $btn = $container.find(".advansed-filter-button.btn-show-filters:first"),
+          btnWidth = $btn.length == 1 ? $btn.width() : 0,
+          visibleBlocksWidth = 0;
 
-        //if ($firstfilter.length > 0 && $lastfilter.length > 0) {
-        //  console.log([
-        //    '($firstfilter[0].offsetTop !== $lastfilter[0].offsetTop) : ',
-        //    ($firstfilter[0].offsetTop !== $lastfilter[0].offsetTop),
-        //    '\n',
-        //    '($firstfilter[0].offsetHeight !== $lastfilter[0].offsetHeight) : ',
-        //    ($firstfilter[0].offsetHeight !== $lastfilter[0].offsetHeight),
-        //    '\n',
-        //    '($container[0].offsetWidth < $filters[0].offsetWidth + $filters[0].offsetLeft + minInputWidth) : ',
-        //    ($container[0].offsetWidth < $filters[0].offsetWidth + $filters[0].offsetLeft + minInputWidth),
-        //    '\n',
-        //    '($firstfilter.find(\'span.selector-wrapper:first\')[0].offsetHeight !== $lastfilter.find(\'span.selector-wrapper:first\')[0].offsetHeight) : ',
-        //    ($firstfilter.find('span.selector-wrapper:first')[0].offsetHeight !== $lastfilter.find('span.selector-wrapper:first')[0].offsetHeight)
-        //  ].join(''));
-        //}
+        $filters.children("div:visible").each(function(){
+            visibleBlocksWidth += jq(this).outerWidth();
+        });
+
+        //console.log("$container[0].offsetWidth, $filters[0].offsetWidth, visibleBlocksWidth, visibleBlocksWidth + $filters[0].offsetLeft + btnWidth + minInputWidth + resetBtnWidth + 10);
+        //console.log($firstfilter[0].offsetTop, $lastfilter[0].offsetTop);
+
 
         return $firstfilter.length === 0 || $lastfilter.length === 0 ? false :
           ($firstfilter[0].offsetTop !== $lastfilter[0].offsetTop) ||
           ($firstfilter[0].offsetHeight !== $lastfilter[0].offsetHeight) ||
-          ($container[0].offsetWidth < $filters[0].offsetWidth + $filters[0].offsetLeft + minInputWidth) ||
-          ($firstfilter.find('span.selector-wrapper:first')[0].offsetHeight !== $lastfilter.find('span.selector-wrapper:first')[0].offsetHeight);
+          ($container[0].offsetWidth < $filters[0].offsetWidth + $filters[0].offsetLeft + btnWidth + minInputWidth) ||
+          ($firstfilter.find('span.selector-wrapper:first')[0].offsetHeight !== $lastfilter.find('span.selector-wrapper:first')[0].offsetHeight) ||
+          $container[0].offsetWidth < visibleBlocksWidth + $filters[0].offsetLeft + btnWidth + minInputWidth + resetBtnWidth + 10;
     }
 
     function resizeFilterGroupByHeight(opts, $container) {
@@ -1545,13 +1506,14 @@ International. See the License terms at http://creativecommons.org/licenses/by-s
         }
     }
 
-    function resizeUserFilterContainer($container, debug) {
+    function resizeUserFilterContainer($container) {
         var
           containerWidth = $container.width(),
           $input = $container.find('div.advansed-filter-input:first'),
           $button = $container.find('div.advansed-filter-button:first'),
           $filters = $container.find('div.advansed-filter-filters:first'),
-          $hiddenfilteritems = $filters.find('div.hidden-filters-container:first').find('div.filter-item');
+          $hiddenfilterscontainer = $filters.find('div.hidden-filters-container:first')
+          $hiddenfilteritems = $hiddenfilterscontainer.find('div.filter-item');
 
         if ($input.length === 0 || $filters.length === 0 || containerWidth === 0) {
             return undefined;
@@ -1566,7 +1528,8 @@ International. See the License terms at http://creativecommons.org/licenses/by-s
         }
 
         //$filters.removeClass('has-hidden-filters').find('div.filter-item').removeClass('hidden-filter').appendTo($filters);
-        $filters.removeClass('has-hidden-filters').append($hiddenfilteritems.removeClass('hidden-filter'));
+        $filters.removeClass('has-hidden-filters');
+        $hiddenfilteritems.removeClass('hidden-filter').insertAfter($hiddenfilterscontainer);
 
         var
           titlewidth = 0,
@@ -1576,13 +1539,13 @@ International. See the License terms at http://creativecommons.org/licenses/by-s
           ind = 0,
           opts = $container.data('filteroptions'),
           $advansedcontainer = $container.find('div.advansed-filter-container:first'),
-          $hiddenfilterscontainer = $filters.find('div.hidden-filters-container:first'),
           $firstfilter = $filters.find('div.filter-item:first'),
-          $lastfilter = $filters.find('div.filter-item:last'),
+
           //$selectedfilters = $filters.children('div.filter-item').not('.is-rendered'),
           //selectedfiltersInd = $selectedfilters.length,
           $selectedfilters = $filters.find('div.filter-item'),
           needhidefilters = false;
+
 
         ind = $selectedfilters.length;
         while (ind--) {
@@ -1592,14 +1555,19 @@ International. See the License terms at http://creativecommons.org/licenses/by-s
             $el.width(titlewidth + $selectorwrapper.width());
             $selectorwrapper.css('left', titlewidth + 'px');
         }
+        $input[0].style.marginLeft = 'auto';
+        needhidefilters = needHideFilters($advansedcontainer, $filters, $firstfilter);
 
-        needhidefilters = needHideFilters($advansedcontainer, $filters, $firstfilter, $lastfilter);
         if ($firstfilter.length && needhidefilters) {
             $filters.addClass('has-hidden-filters');
-            while ($firstfilter.length > 0 && needHideFilters($advansedcontainer, $filters, $firstfilter, $lastfilter)) {
+
+            $firstfilter = $filters.find('div.filter-item:first:visible');
+            while ($firstfilter.length > 0 && needHideFilters($advansedcontainer, $filters, $firstfilter)) {
                 $el = $firstfilter;
-                $firstfilter = $firstfilter.addClass('hidden-filter').next();
-                $el.appendTo($hiddenfilterscontainer);
+
+                $firstfilter = $firstfilter.next("div.filter-item");
+
+                $el.addClass('hidden-filter').appendTo($hiddenfilterscontainer);
             }
         }
 
@@ -1703,22 +1671,20 @@ International. See the License terms at http://creativecommons.org/licenses/by-s
         if ($container.length === 0) {
             return undefined;
         }
-        jQuery(window).bind('resize', function () {
-            $container.advansedFilter('resize');
-        });
+
         if (opts.hasOwnProperty('anykey') && opts.anykey === true) {
             var timeout = opts.hasOwnProperty('anykeytimeout') ? opts.anykeytimeout : defaultAnykeyTimeout;
             timeout = isFinite(+timeout) ? +timeout : defaultAnykeyTimeout;
             if (timeout > 0) {
                 filterInputKeyupTimeout = timeout;
-                $container.find('input.advansed-filter-input:first').unbind('keyup', onFilterInputKeyupHelper).bind('keyup', onFilterInputKeyupHelper);
+                $container.find('input.advansed-filter-input:first').unbind('keyup paste', onFilterInputKeyupHelper).bind('keyup paste', onFilterInputKeyupHelper);
             } else {
-                $container.find('input.advansed-filter-input:first').unbind('keyup', onFilterInputKeyup).bind('keyup', onFilterInputKeyup);
+                $container.find('input.advansed-filter-input:first').unbind('keyup paste', onFilterInputKeyup).bind('keyup paste', onFilterInputKeyup);
             }
         } else {
-            $container.find('input.advansed-filter-input:first').unbind('keyup', onFilterInputEnter).bind('keyup', onFilterInputEnter);
+            $container.find('input.advansed-filter-input:first').unbind('keyup paste', onFilterInputEnter).bind('keyup paste', onFilterInputEnter);
         }
-        $container.find('input.advansed-filter-input:first').unbind('keyup', onKeyUp).bind('keyup', onKeyUp);
+        $container.find('input.advansed-filter-input:first').unbind('keyup paste', onKeyUp).bind('keyup paste', onKeyUp);
 
         $container.find('.btn-start-filter:first').unbind('click', onStartFilter).bind('click', onStartFilter);
         $container.find('label.btn-reset-filter:first').unbind('click', onResetFilter).bind('click', onResetFilter);
@@ -2537,7 +2503,7 @@ International. See the License terms at http://creativecommons.org/licenses/by-s
                         resizeUserSorterContainer($container);
                         resizeContainer($container);
                         resizeUserFilterContainer($container);
-                    }
+                     }
                     return undefined;
                 default:
                     return setAdvansedFilter($container, arguments[0], arguments[1]);
@@ -2569,7 +2535,7 @@ International. See the License terms at http://creativecommons.org/licenses/by-s
         opts.colcount = opts.hasOwnProperty('colcount') && isFinite(+opts.colcount) ? +opts.colcount : colcount;
         opts.colcount = opts.colcount > 4 ? 4 : opts.colcount;
 
-        if (!opts.hintDefaultDisable) {
+        if (!opts.hintDefaultDisable && ASC.Resources.Master.FilterHelpCenterLink) {
         opts.hint = opts.hasOwnProperty('hint') ? opts.hint : ASC.Resources.Master.Resource.AdvansedFilterInfoText.format(
                                 '<b>',
                                 '</b>',

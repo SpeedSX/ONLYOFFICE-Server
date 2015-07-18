@@ -1,36 +1,35 @@
 /*
-(c) Copyright Ascensio System SIA 2010-2014
-
-This program is a free software product.
-You can redistribute it and/or modify it under the terms 
-of the GNU Affero General Public License (AGPL) version 3 as published by the Free Software
-Foundation. In accordance with Section 7(a) of the GNU AGPL its Section 15 shall be amended
-to the effect that Ascensio System SIA expressly excludes the warranty of non-infringement of 
-any third-party rights.
-
-This program is distributed WITHOUT ANY WARRANTY; without even the implied warranty 
-of MERCHANTABILITY or FITNESS FOR A PARTICULAR  PURPOSE. For details, see 
-the GNU AGPL at: http://www.gnu.org/licenses/agpl-3.0.html
-
-You can contact Ascensio System SIA at Lubanas st. 125a-25, Riga, Latvia, EU, LV-1021.
-
-The  interactive user interfaces in modified source and object code versions of the Program must 
-display Appropriate Legal Notices, as required under Section 5 of the GNU AGPL version 3.
- 
-Pursuant to Section 7(b) of the License you must retain the original Product logo when 
-distributing the program. Pursuant to Section 7(e) we decline to grant you any rights under 
-trademark law for use of our trademarks.
- 
-All the Product's GUI elements, including illustrations and icon sets, as well as technical writing
-content are licensed under the terms of the Creative Commons Attribution-ShareAlike 4.0
-International. See the License terms at http://creativecommons.org/licenses/by-sa/4.0/legalcode
+ *
+ * (c) Copyright Ascensio System Limited 2010-2015
+ *
+ * This program is freeware. You can redistribute it and/or modify it under the terms of the GNU 
+ * General Public License (GPL) version 3 as published by the Free Software Foundation (https://www.gnu.org/copyleft/gpl.html). 
+ * In accordance with Section 7(a) of the GNU GPL its Section 15 shall be amended to the effect that 
+ * Ascensio System SIA expressly excludes the warranty of non-infringement of any third-party rights.
+ *
+ * THIS PROGRAM IS DISTRIBUTED WITHOUT ANY WARRANTY; WITHOUT EVEN THE IMPLIED WARRANTY OF MERCHANTABILITY OR
+ * FITNESS FOR A PARTICULAR PURPOSE. For more details, see GNU GPL at https://www.gnu.org/copyleft/gpl.html
+ *
+ * You can contact Ascensio System SIA by email at sales@onlyoffice.com
+ *
+ * The interactive user interfaces in modified source and object code versions of ONLYOFFICE must display 
+ * Appropriate Legal Notices, as required under Section 5 of the GNU GPL version 3.
+ *
+ * Pursuant to Section 7 § 3(b) of the GNU GPL you must retain the original ONLYOFFICE logo which contains 
+ * relevant author attributions when distributing the software. If the display of the logo in its graphic 
+ * form is not reasonably feasible for technical reasons, you must include the words "Powered by ONLYOFFICE" 
+ * in every copy of the program you distribute. 
+ * Pursuant to Section 7 § 3(e) we decline to grant you any rights under trademark law for use of our trademarks.
+ *
 */
+
 
 using System;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Threading;
 using System.Web;
 using System.Web.Configuration;
 using System.Web.Services;
@@ -76,7 +75,7 @@ namespace ASC.Web.Files
 
             try
             {
-                switch (context.Request[FilesLinkUtility.Action].ToLower())
+                switch ((context.Request[FilesLinkUtility.Action] ?? "").ToLower())
                 {
                     case "view":
                         DownloadFile(context, true);
@@ -124,38 +123,36 @@ namespace ASC.Web.Files
             {
                 Global.Logger.ErrorFormat("BulkDownload file error. File is not exist on storage. UserId: {0}.", SecurityContext.CurrentAccount.ID);
                 context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+                return;
             }
-            else
-            {
-                if (store is S3Storage)
-                {
-                    var url = store.GetPreSignedUri(FileConstant.StorageDomainTmp, path, TimeSpan.FromHours(1), null).ToString();
-                    context.Response.Redirect(url);
-                }
-                else
-                {
-                    context.Response.Clear();
-                    context.Response.ContentType = "application/zip";
-                    context.Response.AddHeader("Content-Disposition", ContentDispositionUtil.GetHeaderValue(FileConstant.DownloadTitle + ".zip"));
 
-                    using (var readStream = store.IronReadStream(FileConstant.StorageDomainTmp, path, 40))
-                    {
-                        context.Response.AddHeader("Content-Length", readStream.Length.ToString());
-                        readStream.StreamCopyTo(context.Response.OutputStream);
-                    }
-                    try
-                    {
-                        context.Response.Flush();
-                        context.Response.End();
-                    }
-                    catch (HttpException)
-                    {
-                    }
-                }
+            if (store is S3Storage)
+            {
+                var url = store.GetPreSignedUri(FileConstant.StorageDomainTmp, path, TimeSpan.FromHours(1), null).ToString();
+                context.Response.Redirect(url);
+                return;
+            }
+
+            context.Response.Clear();
+            context.Response.ContentType = "application/zip";
+            context.Response.AddHeader("Content-Disposition", ContentDispositionUtil.GetHeaderValue(FileConstant.DownloadTitle + ".zip"));
+
+            using (var readStream = store.IronReadStream(FileConstant.StorageDomainTmp, path, 40))
+            {
+                context.Response.AddHeader("Content-Length", readStream.Length.ToString());
+                readStream.StreamCopyTo(context.Response.OutputStream);
+            }
+            try
+            {
+                context.Response.Flush();
+                context.Response.End();
+            }
+            catch (HttpException)
+            {
             }
         }
 
-        private void DownloadFile(HttpContext context, bool inline)
+        private static void DownloadFile(HttpContext context, bool inline)
         {
             try
             {
@@ -168,6 +165,8 @@ namespace ASC.Web.Files
                     var readLink = FileShareLink.Check(shareLinkKey, true, fileDao, out file);
                     if (!readLink && file == null)
                     {
+                        fileDao.InvalidateCache(id);
+
                         int version;
                         file = int.TryParse(context.Request[FilesLinkUtility.Version], out version) && version > 0
                                    ? fileDao.GetFile(id, version)
@@ -183,7 +182,7 @@ namespace ASC.Web.Files
 
                     if (!readLink && !Global.GetFilesSecurity().CanRead(file))
                     {
-                        context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+                        context.Response.StatusCode = (int)HttpStatusCode.Forbidden;
                         return;
                     }
 
@@ -243,9 +242,6 @@ namespace ASC.Web.Files
                             {
                                 if (file.ConvertedType == null && (string.IsNullOrEmpty(outType) || inline))
                                 {
-
-                                    context.Response.AddHeader("Content-Length", file.ContentLength.ToString(CultureInfo.InvariantCulture));
-
                                     if (fileDao.IsSupportedPreSignedUri(file))
                                     {
                                         context.Response.Redirect(fileDao.GetPreSignedUri(file, TimeSpan.FromHours(1)).ToString(), true);
@@ -254,6 +250,7 @@ namespace ASC.Web.Files
                                     }
 
                                     fileStream = fileDao.GetFileStream(file);
+                                    context.Response.AddHeader("Content-Length", file.ContentLength.ToString(CultureInfo.InvariantCulture));
                                 }
                                 else
                                 {
@@ -370,6 +367,9 @@ namespace ASC.Web.Files
                                 }
                             }
                         }
+                        catch (ThreadAbortException)
+                        {
+                        }
                         catch (HttpException e)
                         {
                             throw new HttpException((int)HttpStatusCode.BadRequest, e.Message);
@@ -393,6 +393,9 @@ namespace ASC.Web.Files
                         }
                     }
                 }
+            }
+            catch (ThreadAbortException)
+            {
             }
             catch (Exception ex)
             {
@@ -434,6 +437,8 @@ namespace ASC.Web.Files
 
                 using (var fileDao = Global.DaoFactory.GetFileDao())
                 {
+                    fileDao.InvalidateCache(id);
+
                     var file = version > 0
                                    ? fileDao.GetFile(id, version)
                                    : fileDao.GetFile(id);
@@ -482,18 +487,26 @@ namespace ASC.Web.Files
             if (folder == null) throw new HttpException((int)HttpStatusCode.NotFound, FilesCommonResource.ErrorMassage_FolderNotFound);
             if (!Global.GetFilesSecurity().CanCreate(folder)) throw new HttpException((int)HttpStatusCode.Forbidden, FilesCommonResource.ErrorMassage_SecurityException_Create);
 
-            File file;
+            File file = null;
             var fileUri = context.Request[FilesLinkUtility.FileUri];
             var fileTitle = context.Request[FilesLinkUtility.FileTitle];
-            if (!string.IsNullOrEmpty(fileUri))
+            try
             {
-                file = CreateFileFromUri(folder, fileUri, fileTitle);
+                if (!string.IsNullOrEmpty(fileUri))
+                {
+                    file = CreateFileFromUri(folder, fileUri, fileTitle);
+                }
+                else
+                {
+                    var template = context.Request["template"];
+                    var docType = context.Request["doctype"];
+                    file = CreateFileFromTemplate(folder, template, fileTitle, docType);
+                }
             }
-            else
+            catch (Exception ex)
             {
-                var template = context.Request["template"];
-                var docType = context.Request["doctype"];
-                file = CreateFileFromTemplate(folder, template, fileTitle, docType);
+                Global.Logger.Error(ex);
+                context.Response.Redirect(PathProvider.StartURL + "#error/" + ex.Message);
             }
 
             FileMarker.MarkAsNew(file);
@@ -506,9 +519,9 @@ namespace ASC.Web.Files
 
         private static File CreateFileFromTemplate(Folder folder, string template, string fileTitle, string docType)
         {
-            var storeTemp = Global.GetStoreTemplate();
+            var storeTemplate = Global.GetStoreTemplate();
 
-            var lang = CoreContext.UserManager.GetUsers(SecurityContext.CurrentAccount.ID).GetCulture().TwoLetterISOLanguageName;
+            var lang = CoreContext.UserManager.GetUsers(SecurityContext.CurrentAccount.ID).GetCulture();
 
             var fileExt = FileUtility.InternalExtension[FileType.Document];
             if (!string.IsNullOrEmpty(docType))
@@ -527,7 +540,7 @@ namespace ASC.Web.Files
                 templateName = "new" + fileExt;
 
                 templatePath = FileConstant.NewDocPath + lang + "/";
-                if (!storeTemp.IsDirectory(templatePath))
+                if (!storeTemplate.IsDirectory(templatePath))
                     templatePath = FileConstant.NewDocPath + "default/";
                 templatePath += templateName;
             }
@@ -536,11 +549,11 @@ namespace ASC.Web.Files
                 templateName = template + fileExt;
 
                 templatePath = FileConstant.TemplateDocPath + lang + "/";
-                if (!storeTemp.IsDirectory(templatePath))
+                if (!storeTemplate.IsDirectory(templatePath))
                     templatePath = FileConstant.TemplateDocPath + "default/";
                 templatePath += templateName;
 
-                if (!storeTemp.IsFile(templatePath))
+                if (!storeTemplate.IsFile(templatePath))
                 {
                     templatePath = FileConstant.TemplateDocPath + "default/";
                     templatePath += templateName;
@@ -559,14 +572,14 @@ namespace ASC.Web.Files
             var file = new File
                 {
                     Title = fileTitle,
-                    ContentLength = storeTemp.GetFileSize(templatePath),
+                    ContentLength = storeTemplate.GetFileSize(templatePath),
                     FolderID = folder.ID
                 };
 
             file.ConvertedType = FileUtility.GetInternalExtension(file.Title);
 
             using (var fileDao = Global.DaoFactory.GetFileDao())
-            using (var stream = storeTemp.IronReadStream("", templatePath, 10))
+            using (var stream = storeTemplate.IronReadStream("", templatePath, 10))
             {
                 return fileDao.SaveFile(file, stream);
             }

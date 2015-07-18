@@ -2,9 +2,7 @@
 <%@ Assembly Name="ASC.Web.CRM" %>
 <%@ Assembly Name="ASC.Web.Core" %>
 
-<%@ Import Namespace="ASC.Web.CRM.Configuration" %>
 <%@ Import Namespace="ASC.Web.CRM.Resources" %>
-<%@ Import Namespace="ASC.Web.Core.Utility.Skins" %>
 
 <%--Tasks List--%>
 <script id="tasksListBaseTmpl" type="text/x-jquery-tmpl">
@@ -60,7 +58,6 @@
 </div>
 
 <div id="taskStatusListContainer" class="studio-action-panel" taskid="">
-    <div class="corner-top left"></div>
     <ul class="dropdown-content">
         <li class="open">
             <a class="dropdown-item"><%= CRMTaskResource.TaskStatus_Open %></a>
@@ -72,7 +69,6 @@
 </div>
 
 <div id="taskActionMenu" class="studio-action-panel">
-    <div class="corner-top right"></div>
     <ul class="dropdown-content">
         <li><a class="dropdown-item display-none" id="sendEmailLink" target="_blank"><%= CRMCommonResource.SendEmail %></a></li>
         <li><a class="dropdown-item" id="editTaskLink"><%= CRMTaskResource.EditTask %></a></li>
@@ -90,7 +86,7 @@
                             <%= CRMCommonResource.Confirmation %>
                         </td>
                         <td class="popupCancel">
-                            <div class="cancelButton" onclick="PopupKeyUpActionProvider.CloseDialog();"></div>
+                            <div class="cancelButton" onclick="PopupKeyUpActionProvider.CloseDialog();">&times</div>
                         </td>
                     </tr>
                 </tbody>
@@ -111,7 +107,6 @@
 </div>
 
 <div id="files_hintCategoriesPanel" class="hintDescriptionPanel">
-    <div class="popup-corner"></div>
     <%= CRMTaskResource.TooltipCategories %>
     <a href="http://www.onlyoffice.com/help/tipstricks/tasks-categories.aspx" target="_blank"><%= CRMCommonResource.ButtonLearnMore %></a>
 </div>
@@ -135,7 +130,7 @@
                     {{/if}}
                 </div>
             </div>
-            <img src="<%= WebImageSupplier.GetAbsoluteWebPath("loader_small.gif", ProductEntryPoint.ID) %>" class="ajax_edit_task" alt="" title="" style="display: none;" />
+            <div class="ajax_edit_task loader-big" title=""></div>
         </td>
 
         <td class="borderBase">
@@ -188,17 +183,7 @@
         <td class="borderBase">
         {{if canEdit == true}}
             <div id="taskMenu_${id}" class="entity-menu" title="<%= CRMCommonResource.Actions %>"
-                 onclick="ASC.CRM.ListTaskView.showActionMenu(${id},
-                         {{if contact != null}}${contact.id}{{else}}0{{/if}}
-                            ,
-                         {{if contact != null}}'${jq.base64.encode(contact.displayName)}'{{else}}''{{/if}}
-                            ,
-                         {{if entity != null}}'${entity.entityType}', ${entity.entityId}{{else}}'', 0{{/if}}
-                            ,
-                            ${category.imagePath.indexOf('task_category_email') != -1}
-                            ,
-                         {{if contact != null && contact.email != null}}'${contact.email.data}'{{else}}''{{/if}}
-                            );" ></div>
+                 onclick="ASC.CRM.ListTaskView.showActionMenu(${id});" ></div>
         {{/if}}
         </td>
     </tr>

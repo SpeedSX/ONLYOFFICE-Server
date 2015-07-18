@@ -1,10 +1,8 @@
-﻿<%@ Assembly Name="ASC.Projects.Core" %>
-<%@ Assembly Name="ASC.Web.Projects" %>
+﻿<%@ Assembly Name="ASC.Web.Projects" %>
 <%@ Control Language="C#" AutoEventWireup="true" CodeBehind="ReportTemplateView.ascx.cs"
     Inherits="ASC.Web.Projects.Controls.Reports.ReportTemplateView" %>
 <%@ Import Namespace="ASC.Web.Projects.Resources" %>
 <%@ Import Namespace="ASC.Web.Projects" %>
-<%@ Register TagPrefix="sc" Namespace="ASC.Web.Studio.Controls.Common" Assembly="ASC.Web.Studio" %>
 
 <div class="input-name-container requiredField">
     <span class="requiredErrorText title" error="<%=ReportResource.EmptyTemplateTitle %>"><%=ReportResource.EmptyTemplateTitle %></span>
@@ -23,20 +21,6 @@
         <input id="autoGeneration" type="checkbox" />
     <% } %>
     <label for="autoGeneration"><%=ReportResource.AutomaticallyGenerate%></label>
-</div>
- 
- <div id="okWindow" style="display: none">
-    <sc:Container ID="_hintPopup" runat="server">
-        <Header>
-            <%=ReportResource.TemplateSavedHeader %>
-        </Header>
-        <Body>
-            <p><%=ReportResource.TemplateSavedNote%></p>
-            <div class="middle-button-container">
-                <a class="button blue middle"><%= ProjectResource.OkButton%></a> 
-            </div>
-        </Body>
-    </sc:Container>
 </div>
             
 <div class="template-params">

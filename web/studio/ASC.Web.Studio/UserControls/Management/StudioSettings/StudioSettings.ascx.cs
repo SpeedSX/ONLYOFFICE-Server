@@ -1,30 +1,28 @@
 /*
-(c) Copyright Ascensio System SIA 2010-2014
-
-This program is a free software product.
-You can redistribute it and/or modify it under the terms 
-of the GNU Affero General Public License (AGPL) version 3 as published by the Free Software
-Foundation. In accordance with Section 7(a) of the GNU AGPL its Section 15 shall be amended
-to the effect that Ascensio System SIA expressly excludes the warranty of non-infringement of 
-any third-party rights.
-
-This program is distributed WITHOUT ANY WARRANTY; without even the implied warranty 
-of MERCHANTABILITY or FITNESS FOR A PARTICULAR  PURPOSE. For details, see 
-the GNU AGPL at: http://www.gnu.org/licenses/agpl-3.0.html
-
-You can contact Ascensio System SIA at Lubanas st. 125a-25, Riga, Latvia, EU, LV-1021.
-
-The  interactive user interfaces in modified source and object code versions of the Program must 
-display Appropriate Legal Notices, as required under Section 5 of the GNU AGPL version 3.
- 
-Pursuant to Section 7(b) of the License you must retain the original Product logo when 
-distributing the program. Pursuant to Section 7(e) we decline to grant you any rights under 
-trademark law for use of our trademarks.
- 
-All the Product's GUI elements, including illustrations and icon sets, as well as technical writing
-content are licensed under the terms of the Creative Commons Attribution-ShareAlike 4.0
-International. See the License terms at http://creativecommons.org/licenses/by-sa/4.0/legalcode
+ *
+ * (c) Copyright Ascensio System Limited 2010-2015
+ *
+ * This program is freeware. You can redistribute it and/or modify it under the terms of the GNU 
+ * General Public License (GPL) version 3 as published by the Free Software Foundation (https://www.gnu.org/copyleft/gpl.html). 
+ * In accordance with Section 7(a) of the GNU GPL its Section 15 shall be amended to the effect that 
+ * Ascensio System SIA expressly excludes the warranty of non-infringement of any third-party rights.
+ *
+ * THIS PROGRAM IS DISTRIBUTED WITHOUT ANY WARRANTY; WITHOUT EVEN THE IMPLIED WARRANTY OF MERCHANTABILITY OR
+ * FITNESS FOR A PARTICULAR PURPOSE. For more details, see GNU GPL at https://www.gnu.org/copyleft/gpl.html
+ *
+ * You can contact Ascensio System SIA by email at sales@onlyoffice.com
+ *
+ * The interactive user interfaces in modified source and object code versions of ONLYOFFICE must display 
+ * Appropriate Legal Notices, as required under Section 5 of the GNU GPL version 3.
+ *
+ * Pursuant to Section 7 § 3(b) of the GNU GPL you must retain the original ONLYOFFICE logo which contains 
+ * relevant author attributions when distributing the software. If the display of the logo in its graphic 
+ * form is not reasonably feasible for technical reasons, you must include the words "Powered by ONLYOFFICE" 
+ * in every copy of the program you distribute. 
+ * Pursuant to Section 7 § 3(e) we decline to grant you any rights under trademark law for use of our trademarks.
+ *
 */
+
 
 using System;
 using System.Linq;
@@ -34,7 +32,6 @@ using System.Web.UI;
 using ASC.MessagingSystem;
 using AjaxPro;
 using ASC.Core;
-using ASC.Core.Common.Logging;
 using ASC.Core.Tenants;
 using ASC.Web.Studio.Core;
 using ASC.Web.Studio.Core.Notify;
@@ -44,7 +41,7 @@ using Resources;
 
 namespace ASC.Web.Studio.UserControls.Management
 {
-    [ManagementControl(ManagementType.General, Location)]
+    [ManagementControl(ManagementType.Customization, Location)]
     [AjaxNamespace("StudioSettingsAjax")]
     public partial class StudioSettings : UserControl
     {
@@ -67,9 +64,6 @@ namespace ASC.Web.Studio.UserControls.Management
             AjaxPro.Utility.RegisterTypeForAjax(GetType());
             Page.RegisterBodyScripts(ResolveUrl("~/usercontrols/Management/StudioSettings/studiosettings.js"));
 
-            //transfer portal           
-            _transferPortalSettings.Controls.Add(LoadControl(TransferPortal.Location));
-
             //timezone & language
             _timelngHolder.Controls.Add(LoadControl(TimeAndLanguage.Location));
 
@@ -84,29 +78,8 @@ namespace ASC.Web.Studio.UserControls.Management
             if (SetupInfo.IsVisibleSettings<VersionSettings.VersionSettings>() && 1 < CoreContext.TenantManager.GetTenantVersions().Count())
                 _portalVersionSettings.Controls.Add(LoadControl(VersionSettings.VersionSettings.Location));
 
-            //main domain settings
-            _mailDomainSettings.Controls.Add(LoadControl(MailDomainSettings.Location));
-
-            //strong security password settings
-            _strongPasswordSettings.Controls.Add(LoadControl(PasswordSettings.Location));
-
-            //invitational link
-            invLink.Controls.Add(LoadControl(InviteLink.Location));
-
-            //sms settings
-            if (SetupInfo.IsVisibleSettings<StudioSmsNotificationSettings>() && CoreContext.PaymentManager.GetApprovedPartner() == null)
-                _smsValidationSettings.Controls.Add(LoadControl(SmsValidationSettings.Location));
-
-            //admin message settings
-            _admMessSettings.Controls.Add(LoadControl(AdminMessageSettings.Location));
-
-            //default page settings
-            _defaultPageSeettings.Controls.Add(LoadControl(DefaultPageSettings.Location));
-
-            /*if (CoreContext.Configuration.Standalone)
-            {
-                _uploadHttpsSeettings.Controls.Add(LoadControl(UploadHttps.Location));
-            }*/
+            //greeting settings
+            _greetingSettings.Controls.Add(LoadControl(GreetingSettings.Location));
         }
 
         #region Check custom domain name
@@ -186,7 +159,6 @@ namespace ASC.Web.Studio.UserControls.Management
                         StudioNotifyService.Instance.SendMsgDnsChange(tenant, GenerateDnsChangeConfirmUrl(u.Email, dnsName, alias, ConfirmType.DnsChange), portalAddress, dnsName);
                         resp.rs2 = string.Format(Resource.DnsChangeMsg, string.Format("<a href='mailto:{0}'>{0}</a>", u.Email));
 
-                        AdminLog.PostAction("Settings: saved DNS settings with parameters dnsName={0}, alias={1}, enableDns={2}", dnsName, alias, enableDns);
                         MessageService.Send(HttpContext.Current.Request, MessageAction.DnsSettingsUpdated);
                     }
                 }
@@ -229,18 +201,6 @@ namespace ASC.Web.Studio.UserControls.Management
                            ? String.Empty
                            : String.Format(".{0}", SetupInfo.BaseDomain);
             }
-        }
-
-        public static string ModifyHowToAdress(string adr)
-        {
-            var lang = CoreContext.TenantManager.GetCurrentTenant().Language;
-            if (lang.Contains("-"))
-            {
-                lang = lang.Split('-')[0];
-            }
-            if (lang != "en") lang += "/";
-            else lang = string.Empty;
-            return string.Format("{0}/{1}{2}", "http://www.onlyoffice.com", lang, adr ?? string.Empty);
         }
     }
 }

@@ -12,14 +12,12 @@
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TrunkDir>..\..\..\</TrunkDir>
-    <AssemblyOriginatorKeyFile>$(TrunkDir)ASC.snk</AssemblyOriginatorKeyFile>
-    <RedDir Condition=" '$(RedDir)' == '' ">$(TrunkDir)redistributable\asc\</RedDir>
+    <OutputPath>$(TrunkDir)web\studio\ASC.Web.Studio\bin\</OutputPath>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -27,134 +25,135 @@
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="AjaxPro.2">
-      <HintPath>..\..\..\redistributable\third-party\Web\AjaxPro.2.dll</HintPath>
+      <HintPath>..\..\..\packages\AjaxPro.2.2.9.17.1\lib\net20\AjaxPro.2.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="ASC.ActiveUp.Net.Common">
-      <HintPath>..\..\..\redistributable\asc\ASC.ActiveUp.Net.Common.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="ASC.ActiveUp.Net.Imap4">
-      <HintPath>..\..\..\redistributable\asc\ASC.ActiveUp.Net.Imap4.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="ASC.ActiveUp.Net.Mail">
-      <HintPath>..\..\..\redistributable\asc\ASC.ActiveUp.Net.Mail.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="ASC.ActiveUp.Net.Pop3">
-      <HintPath>..\..\..\redistributable\asc\ASC.ActiveUp.Net.Pop3.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="ASC.ActiveUp.Net.Smtp">
-      <HintPath>..\..\..\redistributable\asc\ASC.ActiveUp.Net.Smtp.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="ASC.Api">
-      <HintPath>..\..\..\redistributable\asc\ASC.Api.dll</HintPath>
-      <Private>False</Private>
+    <Reference Include="ASC.Api, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\web\studio\ASC.Web.Studio\bin\ASC.Api.dll</HintPath>
     </Reference>
     <Reference Include="ASC.Common, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\redistributable\asc\ASC.Common.dll</HintPath>
-      <Private>False</Private>
+      <HintPath>..\..\..\web\studio\ASC.Web.Studio\bin\ASC.Common.dll</HintPath>
     </Reference>
     <Reference Include="ASC.Core.Common, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\redistributable\asc\ASC.Core.Common.dll</HintPath>
-      <Private>False</Private>
+      <HintPath>..\..\..\web\studio\ASC.Web.Studio\bin\ASC.Core.Common.dll</HintPath>
     </Reference>
-    <Reference Include="ASC.Data.Storage">
-      <HintPath>..\..\..\redistributable\asc\ASC.Data.Storage.dll</HintPath>
-      <Private>False</Private>
+    <Reference Include="ASC.Data.Storage, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\web\studio\ASC.Web.Studio\bin\ASC.Data.Storage.dll</HintPath>
     </Reference>
-    <Reference Include="ASC.FullTextIndex">
-      <HintPath>..\..\..\redistributable\asc\ASC.FullTextIndex.dll</HintPath>
-      <Private>False</Private>
+    <Reference Include="ASC.Specific, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\web\studio\ASC.Web.Studio\bin\ASC.Specific.dll</HintPath>
     </Reference>
-    <Reference Include="ASC.Mail.Aggregator.Dal">
-      <HintPath>..\..\..\redistributable\asc\ASC.Mail.Aggregator.Dal.dll</HintPath>
-      <Private>False</Private>
+    <Reference Include="ASC.Thrdparty, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\web\studio\ASC.Web.Studio\bin\ASC.Thrdparty.dll</HintPath>
     </Reference>
-    <Reference Include="ASC.Specific">
-      <HintPath>..\..\..\redistributable\asc\ASC.Specific.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="ASC.Web.Core">
-      <HintPath>..\..\..\redistributable\asc\ASC.Web.Core.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="ASC.Web.Studio">
-      <HintPath>..\..\..\redistributable\asc\ASC.Web.Studio.dll</HintPath>
-      <Private>False</Private>
+    <Reference Include="DotNetOpenAuth, Version=4.1.0.0, Culture=neutral, PublicKeyToken=2780ccd10d57b246, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\packages\DotNetOpenAuth.Ultimate.4.1.0.12182\lib\net45-full\DotNetOpenAuth.dll</HintPath>
     </Reference>
     <Reference Include="HtmlAgilityPack">
-      <HintPath>..\..\..\redistributable\third-party\HtmlAgilityPack\HtmlAgilityPack.dll</HintPath>
+      <HintPath>..\..\..\packages\HtmlAgilityPack.1.3.9.2\lib\net20\HtmlAgilityPack.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="log4net">
-      <HintPath>..\..\..\redistributable\third-party\log4net\log4net.dll</HintPath>
+      <HintPath>..\..\..\packages\log4net.2.0.3\lib\net40-client\log4net.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="Newtonsoft.Json, Version=6.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\packages\Newtonsoft.Json.6.0.4\lib\net45\Newtonsoft.Json.dll</HintPath>
+    </Reference>
     <Reference Include="NLog">
-      <HintPath>..\..\..\redistributable\third-party\Nlog 2.1\net35\NLog.dll</HintPath>
+      <HintPath>..\..\..\packages\NLog.2.1.0\lib\net45\NLog.dll</HintPath>
       <Private>False</Private>
+    </Reference>
+    <Reference Include="RestSharp, Version=104.4.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\packages\RestSharp.104.4.0\lib\net4\RestSharp.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Configuration" />
     <Reference Include="System.Core" />
     <Reference Include="System.Runtime.Serialization" />
     <Reference Include="System.Web" />
-    <Reference Include="System.Xml.Linq" />
-    <Reference Include="System.Data.DataSetExtensions" />
-    <Reference Include="Microsoft.CSharp" />
-    <Reference Include="System.Data" />
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ApiHelper.cs" />
+    <Compile Include="Authorization\AuthorizationServiceType.cs" />
+    <Compile Include="Authorization\AuthorizationTracker.cs" />
+    <Compile Include="Authorization\BaseOAuth2Authorization.cs" />
+    <Compile Include="Authorization\GoogleOAuth2Authorization.cs" />
     <Compile Include="Collection\ItemList.cs" />
     <Compile Include="Defines.cs" />
+    <Compile Include="Extension\BaseProtocolClientExtensions.cs" />
     <Compile Include="Extension\DateTimeExtensions.cs" />
     <Compile Include="Exceptions.cs" />
-    <Compile Include="FilesUploader.cs" />
-    <Compile Include="FormUpload.cs" />
+    <Compile Include="Extension\ImapExtensions.cs" />
+    <Compile Include="Extension\MailBoxExtensions.cs" />
+    <Compile Include="Extension\QueueExtensions.cs" />
+    <Compile Include="Extension\StackExtensions.cs" />
+    <Compile Include="Imap\ImapFolderUids.cs" />
+    <Compile Include="Imap\ImapIntervals.cs" />
+    <Compile Include="Imap\UidInterval.cs" />
     <Compile Include="Logging\ILogger.cs" />
+    <Compile Include="Logging\LayoutRenderers\ParentFolderLayoutRenderer.cs" />
     <Compile Include="Logging\Log4NetLogger.cs" />
     <Compile Include="Logging\LoggerFactory.cs" />
     <Compile Include="Logging\NlogLogger.cs" />
+    <Compile Include="Logging\NullLogger.cs" />
+    <Compile Include="Logging\LayoutRenderers\SystemLogFolderLayoutRenderer.cs" />
     <Compile Include="MailAttachment.cs" />
     <Compile Include="MailBox.cs" />
     <Compile Include="MailClientBuilder.cs" />
+    <Compile Include="MailClientConfig.cs" />
+    <Compile Include="MailFolder.cs" />
     <Compile Include="MailMessageItem.cs" />
     <Compile Include="MailServerHelper.cs" />
     <Compile Include="MailServerSettings.cs" />
-    <Compile Include="MessageHandlerBase.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Extension\SqlQueryExtensions.cs" />
     <Compile Include="Extension\StringExtensions.cs" />
     <Compile Include="Utils\MailUtil.cs" />
     <Compile Include="WellKnownPorts.cs" />
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <ProjectReference Include="..\..\ASC.MailSystem\ClassLibrary\ActiveUp.Net.Common\ActiveUp.Net.Common.csproj">
+      <Project>{c8d2498b-ce0e-4e0a-ab1c-29599deb1c38}</Project>
+      <Name>ActiveUp.Net.Common</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\ASC.MailSystem\ClassLibrary\ActiveUp.Net.Imap4\ActiveUp.Net.Imap4.csproj">
+      <Project>{ebf85ded-be97-4610-b4ef-9aca73033aa5}</Project>
+      <Name>ActiveUp.Net.Imap4</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\ASC.MailSystem\ClassLibrary\ActiveUp.Net.Mail\ActiveUp.Net.Mail.csproj">
+      <Project>{26e7dbda-08ef-4a83-95d5-e3c689add90b}</Project>
+      <Name>ActiveUp.Net.Mail</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\ASC.MailSystem\ClassLibrary\ActiveUp.Net.Pop3\ActiveUp.Net.Pop3.csproj">
+      <Project>{382b91cf-56a7-4538-8e96-f6ea01a60f86}</Project>
+      <Name>ActiveUp.Net.Pop3</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\ASC.MailSystem\ClassLibrary\ActiveUp.Net.Smtp\ActiveUp.Net.Smtp.csproj">
+      <Project>{d5eba7a8-a259-415a-a4aa-543a7bc025c5}</Project>
+      <Name>ActiveUp.Net.Smtp</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ASC.Mail.Aggregator.Dal\ASC.Mail.Aggregator.Dal.csproj">
+      <Project>{d2f288a0-3622-406e-8d65-a308d1dbc2eb}</Project>
+      <Name>ASC.Mail.Aggregator.Dal</Name>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <Target Name="AfterBuild">
-    <Copy SourceFiles="@(IntermediateAssembly)" DestinationFolder="$(RedDir)" SkipUnchangedFiles="true" />
-    <Copy SourceFiles="@(DocFileItem)" DestinationFiles="@(FinalDocFile->'$(RedDir)%(FileName)%(Extension)')" SkipUnchangedFiles="true" Condition="'$(_DocumentationFileProduced)'=='true'" />
-    <Copy SourceFiles="@(IntermediateSatelliteAssembliesWithTargetPath)" DestinationFiles="@(IntermediateSatelliteAssembliesWithTargetPath->'$(RedDir)%(Culture)\$(TargetName).resources.dll')" SkipUnchangedFiles="true" />
-  </Target>
-  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
-       Other similar extension points exist, see Microsoft.Common.targets.
-  <Target Name="BeforeBuild">
-  </Target>
-  <Target Name="AfterBuild">
-  </Target>
-  -->
 </Project>

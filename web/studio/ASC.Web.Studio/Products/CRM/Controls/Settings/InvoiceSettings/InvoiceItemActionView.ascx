@@ -1,7 +1,6 @@
 ﻿<%@ Assembly Name="ASC.Web.CRM" %>
 <%@ Control Language="C#" AutoEventWireup="true" CodeBehind="InvoiceItemActionView.ascx.cs" Inherits="ASC.Web.CRM.Controls.Settings.InvoiceItemActionView" %>
-<%@ Import Namespace="ASC.CRM.Core" %>
-<%@ Import Namespace="ASC.Web.Core.Utility.Skins" %>
+
 <%@ Import Namespace="ASC.Web.CRM.Resources" %>
 
 <div id="crm_invoiceItemMakerDialog">
@@ -25,7 +24,7 @@
         <div class="headerPanelSmall-splitter requiredField">
             <span class="requiredErrorText"></span>
             <div class="header-base-small headerPanelSmall"><%= CRMInvoiceResource.FormInvoiceItemPrice %>:</div>
-            <input type="text" class="textEdit invoiceItemPrice"  maxlength="100" value="" />
+            <input type="text" class="textEdit invoiceItemPrice"  maxlength="10" value="" />
             <span class="splitter"></span>
             <span class="invoiceItemCurrency"></span>
             <div class="HelpCenterSwitcher" id="itemCurrencyHelpSwitcher"></div>
@@ -37,7 +36,7 @@
         <div class="headerPanelSmall-splitter totalQuantity">
             <span class="requiredErrorText"><%= CRMInvoiceResource.ErrorIncorrectQuantity %></span>
             <div class="header-base-small headerPanelSmall"><%= CRMInvoiceResource.FormInvoiceItemQuantity %>:</div>
-            <input type="text" class="textEdit invoiceItemQuantity"  maxlength="100" value="" /> 
+            <input type="text" class="textEdit invoiceItemQuantity"  maxlength="10" value="" /> 
         </div>
 
          <div class="headerPanelSmall-splitter">
@@ -71,7 +70,7 @@
             <div class="currentQuantity display-none">
                 <span class="requiredErrorText"><%= CRMInvoiceResource.ErrorIncorrectQuantity %></span>
                 <div class="header-base-small headerPanelSmall"><%= CRMInvoiceResource.FormInvoiceItemStockQuantity %>:</div>
-                <input type="text" class="textEdit invoiceItemStockQuantity"  maxlength="100" value="" /> 
+                <input type="text" class="textEdit invoiceItemStockQuantity"  maxlength="10" value="" /> 
             </div>
         </div>
     </div>

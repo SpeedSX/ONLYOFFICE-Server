@@ -3,10 +3,7 @@
 <%@ Assembly Name="ASC.Common" %>
 <%@ Assembly Name="ASC.Core.Common" %>
 <%@ Control Language="C#" AutoEventWireup="true" CodeBehind="HistoryView.ascx.cs" Inherits="ASC.Web.CRM.Controls.Common.HistoryView" %>
-<%@ Import Namespace="ASC.Core" %>
-<%@ Import Namespace="ASC.CRM.Core" %>
-<%@ Import Namespace="ASC.Web.Core.Utility.Skins" %>
-<%@ Import Namespace="ASC.Web.CRM" %>
+
 <%@ Import Namespace="ASC.Web.CRM.Resources" %>
 
 <div id="historyBlock">
@@ -66,9 +63,10 @@
     <% } %>
 
     <div class="middle-button-container">
-        <a class="button blue middle disable" onclick="ASC.CRM.HistoryView.addEvent()">
+        <a class="button blue middle disable" onclick="ASC.CRM.HistoryView.addEvent(this)">
             <%= CRMCommonResource.AddThisNote %>
         </a>
+        <span class="describe-text display-none lond-data-text" style="padding-left: 24px;"></span>
     </div>
 
     <br />
@@ -79,7 +77,7 @@
         <br />
 
         <div id="eventsList">
-            <table id="eventsTable" class="tableBase" cellpadding="10" cellspacing="0">
+            <table id="eventsTable" cellpadding="10" cellspacing="0">
                 <tbody>
                 </tbody>
             </table>

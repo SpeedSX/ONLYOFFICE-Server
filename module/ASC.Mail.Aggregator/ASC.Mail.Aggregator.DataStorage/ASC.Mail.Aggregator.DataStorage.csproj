@@ -12,14 +12,12 @@
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TrunkDir>..\..\..\</TrunkDir>
-    <AssemblyOriginatorKeyFile>$(TrunkDir)ASC.snk</AssemblyOriginatorKeyFile>
-    <RedDir Condition=" '$(RedDir)' == '' ">$(TrunkDir)redistributable\asc\</RedDir>
+    <OutputPath>$(TrunkDir)web\studio\ASC.Web.Studio\bin\</OutputPath>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -27,39 +25,26 @@
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="ASC.Core.Common">
-      <HintPath>..\..\..\redistributable\asc\ASC.Core.Common.dll</HintPath>
-      <Private>False</Private>
+    <Reference Include="ASC.Core.Common, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\web\studio\ASC.Web.Studio\bin\ASC.Core.Common.dll</HintPath>
     </Reference>
-    <Reference Include="ASC.Data.Storage">
-      <HintPath>..\..\..\redistributable\asc\ASC.Data.Storage.dll</HintPath>
-      <Private>False</Private>
+    <Reference Include="ASC.Data.Storage, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\web\studio\ASC.Web.Studio\bin\ASC.Data.Storage.dll</HintPath>
     </Reference>
-    <Reference Include="ASC.Specific">
-      <HintPath>..\..\..\redistributable\asc\ASC.Specific.dll</HintPath>
-    </Reference>
-    <Reference Include="ASC.Web.Core">
-      <HintPath>..\..\..\redistributable\asc\ASC.Web.Core.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="ASC.Web.Studio">
-      <HintPath>..\..\..\redistributable\asc\ASC.Web.Studio.dll</HintPath>
-      <Private>False</Private>
+    <Reference Include="ASC.Web.Core, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\web\studio\ASC.Web.Studio\bin\ASC.Web.Core.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Web" />
-    <Reference Include="System.Xml.Linq" />
-    <Reference Include="System.Data.DataSetExtensions" />
-    <Reference Include="Microsoft.CSharp" />
-    <Reference Include="System.Data" />
-    <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AttachmentManager.cs" />
@@ -70,22 +55,9 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ASC.Mail.Aggregator.Common\ASC.Mail.Aggregator.Common.csproj">
-      <Project>{26222FC6-1F6D-44E9-A82B-36BB8355220E}</Project>
+      <Project>{26222fc6-1f6d-44e9-a82b-36bb8355220e}</Project>
       <Name>ASC.Mail.Aggregator.Common</Name>
-      <Private>False</Private>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <Target Name="AfterBuild">
-    <Copy SourceFiles="@(IntermediateAssembly)" DestinationFolder="$(RedDir)" SkipUnchangedFiles="true" />
-    <Copy SourceFiles="@(DocFileItem)" DestinationFiles="@(FinalDocFile->'$(RedDir)%(FileName)%(Extension)')" SkipUnchangedFiles="true" Condition="'$(_DocumentationFileProduced)'=='true'" />
-    <Copy SourceFiles="@(IntermediateSatelliteAssembliesWithTargetPath)" DestinationFiles="@(IntermediateSatelliteAssembliesWithTargetPath->'$(RedDir)%(Culture)\$(TargetName).resources.dll')" SkipUnchangedFiles="true" />
-  </Target>
-  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
-       Other similar extension points exist, see Microsoft.Common.targets.
-  <Target Name="BeforeBuild">
-  </Target>
-  <Target Name="AfterBuild">
-  </Target>
-  -->
 </Project>

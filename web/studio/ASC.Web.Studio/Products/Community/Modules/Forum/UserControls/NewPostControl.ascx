@@ -1,11 +1,9 @@
-﻿<%@ Assembly Name="ASC.Web.Community.Forum" %>
+﻿<%@ Assembly Name="ASC.Web.Community" %>
 <%@ Control Language="C#" AutoEventWireup="true" CodeBehind="NewPostControl.ascx.cs" Inherits="ASC.Web.UserControls.Forum.NewPostControl" %>
 
 <%@ Register Assembly="ASC.Web.Studio" Namespace="ASC.Web.Studio.UserControls.Common.PollForm" TagPrefix="sc" %>
 
-<%@ Import Namespace="ASC.Data.Storage" %>
 <%@ Import Namespace="ASC.Web.Studio.Utility" %>
-<%@ Import Namespace="ASC.Web.Core.Utility.Skins" %>
 <%@ Import Namespace="ASC.Web.UserControls.Forum" %>
 <%@ Import Namespace="ASC.Web.UserControls.Forum.Common" %>
 <%@ Import Namespace="ASC.Web.UserControls.Forum.Resources" %>
@@ -55,8 +53,6 @@
                 </div>
                 <div id="forum_upload_pnl" class="clearFix">
                 <a class="button gray forum_uploadButton" id="forum_uploadButton"><%=ForumUCResource.FileUploadAddButton%></a>
-                <div id="switcher" style="display: none;">
-                </div>
             </div>
             </div>
 
@@ -65,22 +61,21 @@
 
     <div class="clearFix">
         <div id="panel_buttons" class="middle-button-container">
-            <a class="button blue middle" href="javascript:void(0);"
-				    onclick="ForumManager.SendMessage(); return false;">
-                <%=ForumUCResource.PublishButton%>
-            </a>
+            <a id="createPostBth" class="button blue middle" onclick="ForumManager.SendMessage()"><%=ForumUCResource.PublishButton%></a>
             <span class="splitter-buttons"></span>
-            <a class="button blue middle" href="javascript:void(0);"
-				    onclick="ForumManager.PreviewFCK()"; return false;">
-                <%=ForumUCResource.PreviewButton%>
-            </a>
+            <% if (string.IsNullOrEmpty(_text))
+            { %>
+            <a id="btnPreview" class="button blue middle disable" onclick="ForumManager.PreviewEditor()"><%= ForumUCResource.PreviewButton %></a>
+        <% } else { %>
+            <a id="btnPreview" class="button blue middle" onclick="ForumManager.PreviewEditor()"><%= ForumUCResource.PreviewButton %></a>
+        <% } %>
             <span class="splitter-buttons"></span>
-            <a class="button gray middle cancelFckEditorChangesButtonMarker" onclick="javascript:ForumManager.BlockButtons(); ForumManager.CancelPost('<%=(EditedPost == null)?"":EditedPost.ID.ToString()%>');" href="#">
+            <a class="button gray middle cancelFckEditorChangesButtonMarker" onclick="javascript:ForumManager.BlockButtons(); ForumManager.CancelPost('<%=(EditedPost == null)?"":EditedPost.ID.ToString()%>');">
                 <%=ForumUCResource.CancelButton%>
             </a>
             <div style="display:inline-block; vertical-align: middle; margin-left: 17px;">
-            <%=RenderSubscription()%>
-        </div>
+                <%=RenderSubscription()%>
+            </div>
         </div>
     </div>
 </div>

@@ -80,7 +80,6 @@
             <div class="innerBox float-right">
             </div>
             <div class="fileSelector studio-action-panel" onclick="ImportUsersManager.ChangeVisionFileSelector();">
-				<div class="corner-top right"> </div>
                 <ul class="dropdown-content">
                     <li id="import_flatUploader"><a href="javascript:void(0);" class="dropdown-item"><%= Resource.ImportContactsFromFileCSV %></a></li>
                     <li id="import_msUploader"><a href="javascript:void(0);" class="dropdown-item"><%= Resource.ImportContactsFromFileMS %></a></li>
@@ -167,16 +166,20 @@
                 <div class="popup_helper" id="answerForHelpInviteGuests">
                     <p>
                         <%=string.Format(Resource.NoteForInviteCollaborator, "<b>","</b>")%>
+                         <% if (!string.IsNullOrEmpty(CommonLinkUtility.GetHelpLink()))
+                            { %>
                         <a href="<%= CommonLinkUtility.GetHelpLink(true) %>" target="_blank">
-                            <%=Resource.LearnMore%></a></p>
+                            <%= Resource.LearnMore %></a>
+                        <% } %>
+                    </p>
                 </div>
             </div>
 
             <div id="inviteLinkPanel" class="inputBox">
                 <a id="inviteLinkCopy" class="invite-copy-link link dotline small gray"><span><%= Resource.CopyToClipboard %></span></a>
-                <input id="inviteUserLink" type="text" <% if (!MobileDetector.IsMobile) { %> readonly="readonly" <%} %> class="textEdit" value="<%= EnableInviteLink ? InviteLink.GenerateLink(EmployeeType.User): InviteLink.GenerateLink(EmployeeType.Visitor) %>"
-                    <% if (EnableInviteLink) { %> data-invite-user-link="<%=InviteLink.GenerateLink(EmployeeType.User)%>"
-                    data-invite-visitor-link="<%=InviteLink.GenerateLink(EmployeeType.Visitor) %>"
+                <input id="inviteUserLink" type="text" <% if (!MobileDetector.IsMobile) { %> readonly="readonly" <%} %> class="textEdit" value="<%= EnableInviteLink ? InvitePanel.GenerateLink(EmployeeType.User): InvitePanel.GenerateLink(EmployeeType.Visitor) %>"
+                    <% if (EnableInviteLink) { %> data-invite-user-link="<%=InvitePanel.GenerateLink(EmployeeType.User)%>"
+                    data-invite-visitor-link="<%=InvitePanel.GenerateLink(EmployeeType.Visitor) %>"
                     <%} %> />
             </div>
         </div>
@@ -195,17 +198,20 @@
                     <%=PeopleLimit > 0 ? String.Format(Resource.ImportUserLimitHeader, PeopleLimit) : Resource.ImportUserOverlimitHeader%>
                 </div>
                 <br/>
-                <br/>
-                <div id="importUserLimitReason">
-                    <%=PeopleLimit > 0 ? Resource.ImportUserLimitReason : Resource.ImportUserOverlimitReason%>
+                <div>
+                    <%=FreeTariff ?
+                        string.Format(Resource.ImportUserOpenPortalLimitReason,
+                            "<br/><a class='link underline' href='http://helpcenter.onlyoffice.com/gettingstarted/configuration.aspx#PublicPortals' target='_blank'>",
+                            "</a>") :
+                        Resource.ImportUserLimitReason%>
                 </div>
-                <br/>
-                <br/>
-                <%=Resource.ImportUserLimitDecision%>
             </div>
             <div class="middle-button-container">
-                    <a id="import-limit-btn" class="blue button" onclick="ImportUsersManager.ConfirmationLimit();">
-                        <%=Resource.ImportUserLimitOkButtons%>
+                <a class="blue button medium" href="<%= TenantExtra.GetTariffPageLink() %>">
+                    <%= UserControlsCommonResource.UpgradeButton %></a>
+                <span class="splitter-buttons"></span>
+                    <a id="import-limit-btn" class="gray button" onclick="ImportUsersManager.ConfirmationLimit();">
+                        <%= Resource.AddUsersCaption %>
                     </a>
                     <span class="splitter-buttons"></span>
                     <a id="import-limit-cancel-btn" class="button gray" onclick="ImportUsersManager.HideImportUserLimitPanel();">

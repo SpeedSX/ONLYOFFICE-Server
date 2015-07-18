@@ -158,6 +158,11 @@ window.ASC.TMTalk.meseditorContainer = (function ($) {
               var attr = child.getAttribute('href');
               if (attr) {
                 content += attr;
+              } else {
+                var textContent = child.textContent;
+                if (textContent) {
+                  content += textContent;
+                }
               }
               break;
             case 'img' :
@@ -505,7 +510,7 @@ window.ASC.TMTalk.meseditorContainer = (function ($) {
         nodes[0].setAttribute('dir', 'ltr');
       }
 
-      try { wnd.document.execCommand('undo', false, null); } catch (err) {}
+      //try { wnd.document.execCommand('undo', false, null); } catch (err) {}
       try { wnd.document.execCommand('useCSS', false, true); } catch (err) {}
       try { wnd.document.execCommand('styleWithCSS',false, true); } catch (err) {}
       try { wnd.document.execCommand('enableObjectResizing', false, false); } catch (err) {}

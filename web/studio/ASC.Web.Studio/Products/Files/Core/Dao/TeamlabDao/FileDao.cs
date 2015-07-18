@@ -1,30 +1,28 @@
 /*
-(c) Copyright Ascensio System SIA 2010-2014
-
-This program is a free software product.
-You can redistribute it and/or modify it under the terms 
-of the GNU Affero General Public License (AGPL) version 3 as published by the Free Software
-Foundation. In accordance with Section 7(a) of the GNU AGPL its Section 15 shall be amended
-to the effect that Ascensio System SIA expressly excludes the warranty of non-infringement of 
-any third-party rights.
-
-This program is distributed WITHOUT ANY WARRANTY; without even the implied warranty 
-of MERCHANTABILITY or FITNESS FOR A PARTICULAR  PURPOSE. For details, see 
-the GNU AGPL at: http://www.gnu.org/licenses/agpl-3.0.html
-
-You can contact Ascensio System SIA at Lubanas st. 125a-25, Riga, Latvia, EU, LV-1021.
-
-The  interactive user interfaces in modified source and object code versions of the Program must 
-display Appropriate Legal Notices, as required under Section 5 of the GNU AGPL version 3.
- 
-Pursuant to Section 7(b) of the License you must retain the original Product logo when 
-distributing the program. Pursuant to Section 7(e) we decline to grant you any rights under 
-trademark law for use of our trademarks.
- 
-All the Product's GUI elements, including illustrations and icon sets, as well as technical writing
-content are licensed under the terms of the Creative Commons Attribution-ShareAlike 4.0
-International. See the License terms at http://creativecommons.org/licenses/by-sa/4.0/legalcode
+ *
+ * (c) Copyright Ascensio System Limited 2010-2015
+ *
+ * This program is freeware. You can redistribute it and/or modify it under the terms of the GNU 
+ * General Public License (GPL) version 3 as published by the Free Software Foundation (https://www.gnu.org/copyleft/gpl.html). 
+ * In accordance with Section 7(a) of the GNU GPL its Section 15 shall be amended to the effect that 
+ * Ascensio System SIA expressly excludes the warranty of non-infringement of any third-party rights.
+ *
+ * THIS PROGRAM IS DISTRIBUTED WITHOUT ANY WARRANTY; WITHOUT EVEN THE IMPLIED WARRANTY OF MERCHANTABILITY OR
+ * FITNESS FOR A PARTICULAR PURPOSE. For more details, see GNU GPL at https://www.gnu.org/copyleft/gpl.html
+ *
+ * You can contact Ascensio System SIA by email at sales@onlyoffice.com
+ *
+ * The interactive user interfaces in modified source and object code versions of ONLYOFFICE must display 
+ * Appropriate Legal Notices, as required under Section 5 of the GNU GPL version 3.
+ *
+ * Pursuant to Section 7 § 3(b) of the GNU GPL you must retain the original ONLYOFFICE logo which contains 
+ * relevant author attributions when distributing the software. If the display of the logo in its graphic 
+ * form is not reasonably feasible for technical reasons, you must include the words "Powered by ONLYOFFICE" 
+ * in every copy of the program you distribute. 
+ * Pursuant to Section 7 § 3(e) we decline to grant you any rights under trademark law for use of our trademarks.
+ *
 */
+
 
 using System;
 using System.Collections.Generic;
@@ -76,9 +74,9 @@ namespace ASC.Files.Core.Data
 
         public File GetFile(object fileId)
         {
-            using (var DbManager = GetDbManager())
+            using (var dbManager = GetDb())
             {
-                return DbManager
+                return dbManager
                     .ExecuteList(GetFileQuery(Exp.Eq("id", fileId) & Exp.Eq("current_version", true)))
                     .ConvertAll(ToFile)
                     .SingleOrDefault();
@@ -87,9 +85,9 @@ namespace ASC.Files.Core.Data
 
         public File GetFile(object fileId, int fileVersion)
         {
-            using (var DbManager = GetDbManager())
+            using (var dbManager = GetDb())
             {
-                return DbManager
+                return dbManager
                     .ExecuteList(GetFileQuery(Exp.Eq("id", fileId) & Exp.Eq("version", fileVersion)))
                     .ConvertAll(ToFile)
                     .SingleOrDefault();
@@ -99,9 +97,9 @@ namespace ASC.Files.Core.Data
         public File GetFile(object parentId, String title)
         {
             if (String.IsNullOrEmpty(title)) throw new ArgumentNullException(title);
-            using (var DbManager = GetDbManager())
+            using (var dbManager = GetDb())
             {
-                var sqlQueryResult = DbManager
+                var sqlQueryResult = dbManager
                     .ExecuteList(GetFileQuery(Exp.Eq("title", title) & Exp.Eq("current_version", true) & Exp.Eq("folder_id", parentId)))
                     .ConvertAll(ToFile);
 
@@ -111,9 +109,9 @@ namespace ASC.Files.Core.Data
 
         public List<File> GetFileHistory(object fileId)
         {
-            using (var DbManager = GetDbManager())
+            using (var dbManager = GetDb())
             {
-                var files = DbManager
+                var files = dbManager
                     .ExecuteList(GetFileQuery(Exp.Eq("id", fileId)).OrderBy("version", false))
                     .ConvertAll(ToFile);
 
@@ -125,9 +123,9 @@ namespace ASC.Files.Core.Data
         {
             if (fileIds == null || fileIds.Length == 0) return new List<File>();
 
-            using (var DbManager = GetDbManager())
+            using (var dbManager = GetDb())
             {
-                return DbManager
+                return dbManager
                     .ExecuteList(GetFileQuery(Exp.In("id", fileIds) & Exp.Eq("current_version", true)))
                     .ConvertAll(ToFile);
             }
@@ -173,71 +171,71 @@ namespace ASC.Files.Core.Data
 
             lock (syncRoot)
             {
-                using (var DbManager = GetDbManager())
+                using (var db = GetDb())
+                using (var tx = db.BeginTransaction())
                 {
-                    using (var tx = DbManager.BeginTransaction())
+                    if (file.ID == null)
                     {
-                        if (file.ID == null)
-                        {
-                            file.ID = DbManager.ExecuteScalar<int>(new SqlQuery("files_file").SelectMax("id")) + 1;
-                            file.Version = 1;
-                            file.VersionGroup = 1;
-                            isNew = true;
-                        }
+                        file.ID = db.ExecuteScalar<int>(new SqlQuery("files_file").SelectMax("id")) + 1;
+                        file.Version = 1;
+                        file.VersionGroup = 1;
+                        isNew = true;
+                    }
 
-                        file.Title = Global.ReplaceInvalidCharsAndTruncate(file.Title);
+                    file.Title = Global.ReplaceInvalidCharsAndTruncate(file.Title);
 
-                        file.ModifiedBy = SecurityContext.CurrentAccount.ID;
-                        file.ModifiedOn = TenantUtil.DateTimeNow();
-                        if (file.CreateBy == default(Guid)) file.CreateBy = SecurityContext.CurrentAccount.ID;
-                        if (file.CreateOn == default(DateTime)) file.CreateOn = TenantUtil.DateTimeNow();
+                    file.ModifiedBy = SecurityContext.CurrentAccount.ID;
+                    file.ModifiedOn = TenantUtil.DateTimeNow();
+                    if (file.CreateBy == default(Guid)) file.CreateBy = SecurityContext.CurrentAccount.ID;
+                    if (file.CreateOn == default(DateTime)) file.CreateOn = TenantUtil.DateTimeNow();
 
-                        DbManager.ExecuteNonQuery(
-                            Update("files_file")
-                                .Set("current_version", false)
-                                .Where("id", file.ID)
-                                .Where("current_version", true));
+                    db.ExecuteNonQuery(
+                        Update("files_file")
+                            .Set("current_version", false)
+                            .Where("id", file.ID)
+                            .Where("current_version", true));
 
-                        DbManager.ExecuteNonQuery(
-                            Insert("files_file")
+                    var sql = Insert("files_file")
                                 .InColumnValue("id", file.ID)
                                 .InColumnValue("version", file.Version)
                                 .InColumnValue("version_group", file.VersionGroup)
-                                .InColumnValue("title", file.Title)
-                                .InColumnValue("folder_id", file.FolderID)
-                                .InColumnValue("create_on", TenantUtil.DateTimeToUtc(file.CreateOn))
-                                .InColumnValue("create_by", file.CreateBy.ToString())
-                                .InColumnValue("content_length", file.ContentLength)
-                                .InColumnValue("modified_on", TenantUtil.DateTimeToUtc(file.ModifiedOn))
-                                .InColumnValue("modified_by", file.ModifiedBy.ToString())
-                                .InColumnValue("category", (int)file.FilterType)
                                 .InColumnValue("current_version", true)
+                                .InColumnValue("folder_id", file.FolderID)
+                                .InColumnValue("title", file.Title)
+                                .InColumnValue("content_length", file.ContentLength)
+                                .InColumnValue("category", (int)file.FilterType)
+                                .InColumnValue("create_by", file.CreateBy.ToString())
+                                .InColumnValue("create_on", TenantUtil.DateTimeToUtc(file.CreateOn))
+                                .InColumnValue("modified_by", file.ModifiedBy.ToString())
+                                .InColumnValue("modified_on", TenantUtil.DateTimeToUtc(file.ModifiedOn))
                                 .InColumnValue("converted_type", file.ConvertedType)
-                                .InColumnValue("comment", file.Comment));
+                                .InColumnValue("comment", file.Comment);
+                    db.ExecuteNonQuery(sql);
+                    tx.Commit();
 
-                        var parentFoldersIds = DbManager.ExecuteList(
-                            new SqlQuery("files_folder_tree")
-                                .Select("parent_id")
-                                .Where(Exp.Eq("folder_id", file.FolderID))
-                                .OrderBy("level", false)
-                            ).ConvertAll(row => row[0]);
+                    file.PureTitle = file.Title;
 
-                        if (parentFoldersIds.Count > 0)
-                            DbManager.ExecuteNonQuery(
-                                Update("files_folder")
-                                    .Set("modified_on", TenantUtil.DateTimeToUtc(file.ModifiedOn))
-                                    .Set("modified_by", file.ModifiedBy.ToString())
-                                    .Where(Exp.In("id", parentFoldersIds))
-                                );
+                    var parentFoldersIds = db.ExecuteList(
+                        new SqlQuery("files_folder_tree")
+                            .Select("parent_id")
+                            .Where(Exp.Eq("folder_id", file.FolderID))
+                            .OrderBy("level", false)
+                        ).ConvertAll(row => row[0]);
 
-                        file.PureTitle = file.Title;
+                    if (parentFoldersIds.Count > 0)
+                        db.ExecuteNonQuery(
+                            Update("files_folder")
+                                .Set("modified_on", TenantUtil.DateTimeToUtc(file.ModifiedOn))
+                                .Set("modified_by", file.ModifiedBy.ToString())
+                                .Where(Exp.In("id", parentFoldersIds)));
 
-                        tx.Commit();
+                    if (isNew)
+                    {
+                        RecalculateFilesCount(db, file.FolderID);
                     }
-
-                    RecalculateFilesCount(DbManager, file.FolderID);
                 }
             }
+
             if (fileStream != null)
             {
                 try
@@ -266,14 +264,14 @@ namespace ASC.Files.Core.Data
                 || file.ID == null
                 || file.Version <= 1) return;
 
-            using (var DbManager = GetDbManager())
+            using (var dbManager = GetDb())
             {
-                DbManager.ExecuteNonQuery(
+                dbManager.ExecuteNonQuery(
                     Delete("files_file")
                         .Where("id", file.ID)
                         .Where("version", file.Version));
 
-                DbManager.ExecuteNonQuery(
+                dbManager.ExecuteNonQuery(
                     Update("files_file")
                         .Set("current_version", true)
                         .Where("id", file.ID)
@@ -281,7 +279,7 @@ namespace ASC.Files.Core.Data
             }
         }
 
-        private void SaveFileStream(File file, Stream stream)
+        private static void SaveFileStream(File file, Stream stream)
         {
             Global.GetStore().Save(string.Empty, GetUniqFilePath(file), stream, file.Title);
         }
@@ -289,31 +287,31 @@ namespace ASC.Files.Core.Data
         public void DeleteFile(object fileId)
         {
             if (fileId == null) return;
-            using (var DbManager = GetDbManager())
+            using (var db = GetDb())
             {
-                using (var tx = DbManager.BeginTransaction())
+                using (var tx = db.BeginTransaction())
                 {
-                    var fromFolders = DbManager
+                    var fromFolders = db
                         .ExecuteList(Query("files_file").Select("folder_id").Where("id", fileId).GroupBy("id"))
                         .ConvertAll(r => r[0]);
 
-                    DbManager.ExecuteNonQuery(Delete("files_file").Where("id", fileId));
-                    DbManager.ExecuteNonQuery(Delete("files_tag_link").Where("entry_id", fileId).Where("entry_type", FileEntryType.File));
-                    DbManager.ExecuteNonQuery(Delete("files_tag").Where(Exp.EqColumns("0", Query("files_tag_link l").SelectCount().Where(Exp.EqColumns("tag_id", "id")))));
-                    DbManager.ExecuteNonQuery(Delete("files_security").Where("entry_id", fileId).Where("entry_type", FileEntryType.File));
+                    db.ExecuteNonQuery(Delete("files_file").Where("id", fileId));
+                    db.ExecuteNonQuery(Delete("files_tag_link").Where("entry_id", fileId).Where("entry_type", FileEntryType.File));
+                    db.ExecuteNonQuery(Delete("files_tag").Where(Exp.EqColumns("0", Query("files_tag_link l").SelectCount().Where(Exp.EqColumns("tag_id", "id")))));
+                    db.ExecuteNonQuery(Delete("files_security").Where("entry_id", fileId).Where("entry_type", FileEntryType.File));
 
                     tx.Commit();
 
-                    fromFolders.ForEach(folderId => RecalculateFilesCount(DbManager, folderId));
+                    fromFolders.ForEach(folderId => RecalculateFilesCount(db, folderId));
                 }
             }
         }
 
         public bool IsExist(String title, object folderId)
         {
-            using (var DbManager = GetDbManager())
+            using (var dbManager = GetDb())
             {
-                var fileCount = DbManager.ExecuteScalar<int>(
+                var fileCount = dbManager.ExecuteScalar<int>(
                     Query("files_file")
                         .SelectCount()
                         .Where("title", title)
@@ -326,28 +324,30 @@ namespace ASC.Files.Core.Data
         public object MoveFile(object id, object toFolderId)
         {
             if (id == null) return null;
-            using (var DbManager = GetDbManager())
+            using (var db = GetDb())
             {
-                using (var tx = DbManager.BeginTransaction())
+                using (var tx = db.BeginTransaction())
                 {
-                    var fromFolders = DbManager
+                    var fromFolders = db
                         .ExecuteList(Query("files_file").Select("folder_id").Where("id", id).GroupBy("id"))
                         .ConvertAll(r => r[0]);
 
-                    var sqlUpdate = Update("files_file")
+                    var sql = Update("files_file")
                         .Set("folder_id", toFolderId)
                         .Where("id", id);
 
                     if (Global.FolderTrash.Equals(toFolderId))
-                        sqlUpdate.Set("modified_by", SecurityContext.CurrentAccount.ID.ToString())
-                                 .Set("modified_on", DateTime.UtcNow);
+                    {
+                        sql
+                            .Set("modified_by", SecurityContext.CurrentAccount.ID.ToString())
+                            .Set("modified_on", DateTime.UtcNow);
+                    }
 
-                    DbManager.ExecuteNonQuery(sqlUpdate);
-
+                    db.ExecuteNonQuery(sql);
                     tx.Commit();
 
-                    fromFolders.ForEach(folderId => RecalculateFilesCount(DbManager, folderId));
-                    RecalculateFilesCount(DbManager, toFolderId);
+                    fromFolders.ForEach(folderId => RecalculateFilesCount(db, folderId));
+                    RecalculateFilesCount(db, toFolderId);
                 }
             }
             return id;
@@ -355,8 +355,7 @@ namespace ASC.Files.Core.Data
 
         public File CopyFile(object id, object toFolderId)
         {
-            // copy only current version
-            var file = GetFiles(new[] { id }).SingleOrDefault();
+            var file = GetFile(id);
             if (file != null)
             {
                 var copy = new File
@@ -370,12 +369,9 @@ namespace ASC.Files.Core.Data
                         ConvertedType = file.ConvertedType,
                     };
 
-                copy = SaveFile(copy, null);
-
-                //Copy streams
                 using (var stream = GetFileStream(file))
                 {
-                    SaveFileStream(copy, stream);
+                    copy = SaveFile(copy, stream);
                 }
                 return copy;
             }
@@ -385,24 +381,26 @@ namespace ASC.Files.Core.Data
         public object FileRename(object fileId, String newTitle)
         {
             newTitle = Global.ReplaceInvalidCharsAndTruncate(newTitle);
-            using (var DbManager = GetDbManager())
+            using (var dbManager = GetDb())
             {
-                DbManager.ExecuteNonQuery(
+                dbManager.ExecuteNonQuery(
                     Update("files_file")
                         .Set("title", newTitle)
                         .Set("modified_on", DateTime.UtcNow)
                         .Set("modified_by", SecurityContext.CurrentAccount.ID.ToString())
-                        .Where("id", fileId));
+                        .Where("id", fileId)
+                        .Where("current_version", true));
             }
             return fileId;
         }
 
         public string UpdateComment(object fileId, int fileVersion, string comment)
         {
-            using (var DbManager = GetDbManager())
+            using (var dbManager = GetDb())
             {
+                comment = comment ?? string.Empty;
                 comment = comment.Substring(0, Math.Min(comment.Length, 255));
-                DbManager.ExecuteNonQuery(
+                dbManager.ExecuteNonQuery(
                     Update("files_file")
                         .Set("comment", comment)
                         .Where("id", fileId)
@@ -413,9 +411,9 @@ namespace ASC.Files.Core.Data
 
         public void CompleteVersion(object fileId, int fileVersion)
         {
-            using (var DbManager = GetDbManager())
+            using (var dbManager = GetDb())
             {
-                DbManager.ExecuteNonQuery(
+                dbManager.ExecuteNonQuery(
                     Update("files_file")
                         .Set("version_group = version_group + 1")
                         .Where("id", fileId)
@@ -425,19 +423,19 @@ namespace ASC.Files.Core.Data
 
         public void ContinueVersion(object fileId, int fileVersion)
         {
-            using (var DbManager = GetDbManager())
+            using (var dbManager = GetDb())
             {
-                using (var tx = DbManager.BeginTransaction())
+                using (var tx = dbManager.BeginTransaction())
                 {
                     var versionGroup =
-                        DbManager.ExecuteScalar<int>(
+                        dbManager.ExecuteScalar<int>(
                             Query("files_file")
                                 .Select("version_group")
                                 .Where("id", fileId)
                                 .Where("version", fileVersion)
                                 .GroupBy("id"));
 
-                    DbManager.ExecuteNonQuery(
+                    dbManager.ExecuteNonQuery(
                         Update("files_file")
                             .Set("version_group = version_group - 1")
                             .Where("id", fileId)
@@ -456,30 +454,37 @@ namespace ASC.Files.Core.Data
 
         public bool IsExist(object fileId)
         {
-            using (var DbManager = GetDbManager())
+            using (var dbManager = GetDb())
             {
-                var count = DbManager.ExecuteScalar<int>(Query("files_file").SelectCount().Where("id", fileId));
+                var count = dbManager.ExecuteScalar<int>(Query("files_file").SelectCount().Where("id", fileId));
                 return count != 0;
             }
         }
 
-        public String GetUniqFileDirectory(object fileIdObject)
+        private static String GetUniqFileDirectory(object fileIdObject)
         {
             if (fileIdObject == null) throw new ArgumentNullException("fileIdObject");
             var fileIdInt = Convert.ToInt32(Convert.ToString(fileIdObject));
             return string.Format("folder_{0}/file_{1}", (fileIdInt / 1000 + 1) * 1000, fileIdInt);
         }
 
-        public String GetUniqFilePath(File file)
+        private static String GetUniqFilePath(File file)
         {
             return file != null
-                       ? string.Format("{0}/v{1}/content{2}", GetUniqFileDirectory(file.ID), file.Version, FileUtility.GetFileExtension(file.PureTitle))
+                       ? GetUniqFilePath(file, "content" + FileUtility.GetFileExtension(file.PureTitle))
                        : null;
         }
 
-        private void RecalculateFilesCount(DbManager dbManager, object folderId)
+        private static String GetUniqFilePath(File file, string fileTitle)
         {
-            dbManager.ExecuteNonQuery(GetRecalculateFilesCountUpdate(folderId));
+            return file != null
+                       ? string.Format("{0}/v{1}/{2}", GetUniqFileDirectory(file.ID), file.Version, fileTitle)
+                       : null;
+        }
+
+        private void RecalculateFilesCount(IDbManager db, object folderId)
+        {
+            db.ExecuteNonQuery(GetRecalculateFilesCountUpdate(folderId));
         }
 
         #region chunking
@@ -489,8 +494,8 @@ namespace ASC.Files.Core.Data
             if (SetupInfo.ChunkUploadSize > contentLength)
                 return new ChunkedUploadSession(file, contentLength) { UseChunks = false };
 
-            var tempPath = Path.GetRandomFileName();
-            var uploadId = Global.GetStore().InitiateChunkedUpload(string.Empty, tempPath);
+            var tempPath = Guid.NewGuid().ToString();
+            var uploadId = Global.GetStore().InitiateChunkedUpload(FileConstant.StorageDomainTmp, tempPath);
 
             var uploadSession = new ChunkedUploadSession(file, contentLength);
             uploadSession.Items["TempPath"] = tempPath;
@@ -511,7 +516,7 @@ namespace ASC.Files.Core.Data
             var uploadId = uploadSession.GetItemOrDefault<string>("UploadId");
             var chunkNumber = uploadSession.GetItemOrDefault<int>("ChunksUploaded") + 1;
 
-            var eTag = Global.GetStore().UploadChunk(string.Empty, tempPath, uploadId, stream, chunkNumber, chunkLength);
+            var eTag = Global.GetStore().UploadChunk(FileConstant.StorageDomainTmp, tempPath, uploadId, stream, chunkNumber, chunkLength);
 
             var eTags = uploadSession.GetItemOrDefault<List<string>>("ETag") ?? new List<string>();
             eTags.Add(eTag);
@@ -568,11 +573,11 @@ namespace ASC.Files.Core.Data
                                      .Select((x, i) => new KeyValuePair<int, string>(i + 1, x))
                                      .ToDictionary(x => x.Key, x => x.Value);
 
-            Global.GetStore().FinalizeChunkedUpload(string.Empty, tempPath, uploadId, eTags);
+            Global.GetStore().FinalizeChunkedUpload(FileConstant.StorageDomainTmp, tempPath, uploadId, eTags);
 
             var file = GetFileForCommit(uploadSession);
             SaveFile(file, null);
-            Global.GetStore().Move(string.Empty, tempPath, string.Empty, GetUniqFilePath(file));
+            Global.GetStore().Move(FileConstant.StorageDomainTmp, tempPath, string.Empty, GetUniqFilePath(file));
 
             return file;
         }
@@ -583,7 +588,7 @@ namespace ASC.Files.Core.Data
             {
                 var tempPath = uploadSession.GetItemOrDefault<string>("TempPath");
                 var uploadId = uploadSession.GetItemOrDefault<string>("UploadId");
-                Global.GetStore().AbortChunkedUpload(string.Empty, tempPath, uploadId);
+                Global.GetStore().AbortChunkedUpload(FileConstant.StorageDomainTmp, tempPath, uploadId);
             }
             else if (uploadSession.Items.ContainsKey("ChunksBuffer"))
             {
@@ -613,16 +618,13 @@ namespace ASC.Files.Core.Data
         {
             if (FullTextSearch.SupportModule(FullTextSearch.FileModule))
             {
-                var indexResult = FullTextSearch.Search(searchText, FullTextSearch.FileModule);
-                var ids = indexResult.GetIdentifiers()
-                                     .Where(id => !string.IsNullOrEmpty(id) && id[0] != 'd')
-                                     .ToArray();
+                var ids = FullTextSearch.Search(FullTextSearch.FileModule.Match(searchText));
 
-                using (var DbManager = GetDbManager())
+                using (var dbManager = GetDb())
                 {
-                    return DbManager
+                    return dbManager
                         .ExecuteList(GetFileQuery(Exp.In("id", ids) & Exp.Eq("current_version", true)))
-                        .ConvertAll(r => ToFile(r))
+                        .ConvertAll(ToFile)
                         .Where(
                             f =>
                             folderType == FolderType.BUNCH
@@ -641,11 +643,11 @@ namespace ASC.Files.Core.Data
                 if (keywords.Length == 0) return Enumerable.Empty<File>();
 
                 var q = GetFileQuery(Exp.Eq("f.current_version", true) & BuildLike(new[] { "f.title" }, keywords));
-                using (var DbManager = GetDbManager())
+                using (var dbManager = GetDb())
                 {
-                    return DbManager
+                    return dbManager
                         .ExecuteList(q)
-                        .ConvertAll(r => ToFile(r))
+                        .ConvertAll(ToFile)
                         .Where(f =>
                                folderType == FolderType.BUNCH
                                    ? f.RootFolderType == FolderType.BUNCH
@@ -668,6 +670,65 @@ namespace ASC.Files.Core.Data
         public bool IsExistOnStorage(File file)
         {
             return Global.GetStore().IsFile(GetUniqFilePath(file));
+        }
+
+        private const string DiffTitle = "diff.zip";
+        public void SaveEditHistory(File file, string changes, Stream differenceStream)
+        {
+            if (file == null) throw new ArgumentNullException("file");
+            if (string.IsNullOrEmpty(changes)) throw new ArgumentNullException("changes");
+            if (differenceStream == null) throw new ArgumentNullException("differenceStream");
+
+            changes = changes.Trim();
+            using (var dbManager = GetDb())
+            {
+                dbManager.ExecuteNonQuery(
+                    Update("files_file")
+                        .Set("changes", changes)
+                        .Where("id", file.ID)
+                        .Where("version", file.Version));
+            }
+
+            Global.GetStore().Save(string.Empty, GetUniqFilePath(file, DiffTitle), differenceStream, DiffTitle);
+        }
+
+        public List<EditHistory> GetEditHistory(object fileId, int fileVersion = 0)
+        {
+            using (var dbManager = GetDb())
+            {
+                var query = Query("files_file")
+                    .Select("id")
+                    .Select("version")
+                    .Select("version_group")
+                    .Select("modified_on")
+                    .Select("modified_by")
+                    .Select("changes")
+                    .Where(Exp.Eq("id", fileId))
+                    .OrderBy("version", true);
+
+                if (fileVersion > 0)
+                {
+                    query.Where(Exp.Eq("version", fileVersion));
+                }
+
+                return
+                    dbManager
+                        .ExecuteList(query)
+                        .ConvertAll(r => new EditHistory
+                            {
+                                ID = Convert.ToInt32(r[0]),
+                                Version = Convert.ToInt32(r[1]),
+                                VersionGroup = Convert.ToInt32(r[2]),
+                                ModifiedOn = TenantUtil.DateTimeFromUtc(Convert.ToDateTime(r[3])),
+                                ModifiedBy = new Guid((string) r[4]),
+                                Changes = (string) (r[5]),
+                            });
+            }
+        }
+
+        public string GetDifferenceUrl(File file)
+        {
+            return Global.GetStore().GetPreSignedUri(string.Empty, GetUniqFilePath(file, DiffTitle), TimeSpan.FromHours(1), null).ToString();
         }
 
         #endregion

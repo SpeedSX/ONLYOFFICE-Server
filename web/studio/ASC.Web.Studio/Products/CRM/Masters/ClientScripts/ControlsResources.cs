@@ -1,39 +1,28 @@
 /*
-(c) Copyright Ascensio System SIA 2010-2014
-
-This program is a free software product.
-You can redistribute it and/or modify it under the terms 
-of the GNU Affero General Public License (AGPL) version 3 as published by the Free Software
-Foundation. In accordance with Section 7(a) of the GNU AGPL its Section 15 shall be amended
-to the effect that Ascensio System SIA expressly excludes the warranty of non-infringement of 
-any third-party rights.
-
-This program is distributed WITHOUT ANY WARRANTY; without even the implied warranty 
-of MERCHANTABILITY or FITNESS FOR A PARTICULAR  PURPOSE. For details, see 
-the GNU AGPL at: http://www.gnu.org/licenses/agpl-3.0.html
-
-You can contact Ascensio System SIA at Lubanas st. 125a-25, Riga, Latvia, EU, LV-1021.
-
-The  interactive user interfaces in modified source and object code versions of the Program must 
-display Appropriate Legal Notices, as required under Section 5 of the GNU AGPL version 3.
- 
-Pursuant to Section 7(b) of the License you must retain the original Product logo when 
-distributing the program. Pursuant to Section 7(e) we decline to grant you any rights under 
-trademark law for use of our trademarks.
- 
-All the Product's GUI elements, including illustrations and icon sets, as well as technical writing
-content are licensed under the terms of the Creative Commons Attribution-ShareAlike 4.0
-International. See the License terms at http://creativecommons.org/licenses/by-sa/4.0/legalcode
+ *
+ * (c) Copyright Ascensio System Limited 2010-2015
+ *
+ * This program is freeware. You can redistribute it and/or modify it under the terms of the GNU 
+ * General Public License (GPL) version 3 as published by the Free Software Foundation (https://www.gnu.org/copyleft/gpl.html). 
+ * In accordance with Section 7(a) of the GNU GPL its Section 15 shall be amended to the effect that 
+ * Ascensio System SIA expressly excludes the warranty of non-infringement of any third-party rights.
+ *
+ * THIS PROGRAM IS DISTRIBUTED WITHOUT ANY WARRANTY; WITHOUT EVEN THE IMPLIED WARRANTY OF MERCHANTABILITY OR
+ * FITNESS FOR A PARTICULAR PURPOSE. For more details, see GNU GPL at https://www.gnu.org/copyleft/gpl.html
+ *
+ * You can contact Ascensio System SIA by email at sales@onlyoffice.com
+ *
+ * The interactive user interfaces in modified source and object code versions of ONLYOFFICE must display 
+ * Appropriate Legal Notices, as required under Section 5 of the GNU GPL version 3.
+ *
+ * Pursuant to Section 7 § 3(b) of the GNU GPL you must retain the original ONLYOFFICE logo which contains 
+ * relevant author attributions when distributing the software. If the display of the logo in its graphic 
+ * form is not reasonably feasible for technical reasons, you must include the words "Powered by ONLYOFFICE" 
+ * in every copy of the program you distribute. 
+ * Pursuant to Section 7 § 3(e) we decline to grant you any rights under trademark law for use of our trademarks.
+ *
 */
 
-// // --------------------------------------------------------------------------------------------------------------------
-// // <copyright company="Ascensio System Limited" file="ControlsResources.cs">
-// //   
-// // </copyright>
-// // <summary>
-// //   (c) Copyright Ascensio System Limited 2008-2012
-// // </summary>
-// // --------------------------------------------------------------------------------------------------------------------
 
 using System;
 using System.Linq;
@@ -45,16 +34,16 @@ using ASC.Web.CRM.Classes;
 using ASC.CRM.Core;
 using ASC.Core;
 using ASC.Core.Users;
-using ASC.Web.Core.Users;
 using ASC.Web.Core;
 using ASC.Web.CRM.Configuration;
+using System.Globalization;
 
 namespace ASC.Web.CRM.Masters.ClientScripts
 {
 
     #region Data for Common Data
 
-    public class CommonData: ClientScript
+    public class CommonData : ClientScript
     {
         protected override string BaseNamespace
         {
@@ -68,7 +57,7 @@ namespace ASC.Web.CRM.Masters.ClientScripts
 
         protected override IEnumerable<KeyValuePair<string, object>> GetClientVariables(HttpContext context)
         {
-            var admins = CoreContext.UserManager.GetUsersByGroup(Constants.GroupAdmin.ID).ToList<UserInfo>();
+            var admins = CoreContext.UserManager.GetUsersByGroup(Constants.GroupAdmin.ID).ToList();
             admins.AddRange(WebItemSecurity.GetProductAdministrators(ProductEntryPoint.ID).ToList());
             admins = admins.Distinct().ToList();
             admins = admins.SortByUserName();
@@ -89,32 +78,31 @@ namespace ASC.Web.CRM.Masters.ClientScripts
 
             yield return RegisterObject("crmAdminList",
                                         admins.ConvertAll(item => new
-                                        {
-                                            avatarSmall = item.GetSmallPhotoURL(),
-                                            displayName = item.DisplayUserName(),
-                                            id = item.ID,
-                                            title = item.Title.HtmlEncode()
-                                        }));
+                                            {
+                                                avatarSmall = item.GetSmallPhotoURL(),
+                                                displayName = item.DisplayUserName(),
+                                                id = item.ID,
+                                                title = item.Title.HtmlEncode()
+                                            }));
 
             yield return RegisterObject("isCrmAvailableForAllUsers", crmAvailable.Count == 0);
 
             yield return RegisterObject("crmAvailableWithAdminList",
                                         crmAvailableWithAdmins.ConvertAll(item => new
-                                        {
-                                            avatarSmall = item.GetSmallPhotoURL(),
-                                            displayName = item.DisplayUserName(),
-                                            id = item.ID,
-                                            title = item.Title.HtmlEncode()
-                                        }));
-
+                                            {
+                                                avatarSmall = item.GetSmallPhotoURL(),
+                                                displayName = item.DisplayUserName(),
+                                                id = item.ID,
+                                                title = item.Title.HtmlEncode()
+                                            }));
         }
     }
 
-    #endregion 
+    #endregion
 
     #region Data for SmtpSender
 
-    public class SmtpSenderData: ClientScript
+    public class SmtpSenderData : ClientScript
     {
         protected override string BaseNamespace
         {
@@ -132,7 +120,7 @@ namespace ASC.Web.CRM.Masters.ClientScripts
         }
     }
 
-    #endregion  
+    #endregion
 
     #region classes for Contact Views
 
@@ -154,42 +142,41 @@ namespace ASC.Web.CRM.Masters.ClientScripts
             var tags = Global.DaoFactory.GetTagDao().GetAllTags(EntityType.Contact).ToList();
 
             var contactStages = listItems.ConvertAll(item => new
-            {
-                value = item.ID,
-                title = item.Title.HtmlEncode(),
-                classname = "colorFilterItem color_" + item.Color.Replace("#", "").ToLower()
-            });
+                {
+                    value = item.ID,
+                    title = item.Title.HtmlEncode(),
+                    classname = "colorFilterItem color_" + item.Color.Replace("#", "").ToLower()
+                });
             contactStages.Insert(0, new
-            {
-                value = 0,
-                title = CRMCommonResource.NotSpecified,
-                classname = "colorFilterItem color_0"
-            });
+                {
+                    value = 0,
+                    title = CRMCommonResource.NotSpecified,
+                    classname = "colorFilterItem color_0"
+                });
 
 
             listItems = Global.DaoFactory.GetListItemDao().GetItems(ListType.ContactType);
             var contactTypes = listItems.ConvertAll(item => new
-            {
-                value = item.ID,
-                title = item.Title.HtmlEncode()
-            });
-             contactTypes.Insert(0, new
-            {
-                value = 0,
-                title = CRMContactResource.CategoryNotSpecified,
-            });
-           
+                {
+                    value = item.ID,
+                    title = item.Title.HtmlEncode()
+                });
+            contactTypes.Insert(0, new
+                {
+                    value = 0,
+                    title = CRMContactResource.CategoryNotSpecified,
+                });
+
             yield return RegisterObject("contactStages", contactStages);
             yield return RegisterObject("contactTypes", contactTypes);
             yield return RegisterObject("contactTags", tags.ConvertAll(item => new
-                                                        {
-                                                        value = item.HtmlEncode(),
-                                                        title = item.HtmlEncode()
-                                                        }));
+                {
+                    value = item.HtmlEncode(),
+                    title = item.HtmlEncode()
+                }));
             yield return RegisterObject("smtpSettings", Global.TenantSettings.SMTPServerSetting);
 
-            yield return RegisterObject("mailQuotas",  MailSender.GetQuotas());
-           
+            yield return RegisterObject("mailQuotas", MailSender.GetQuotas());
         }
     }
 
@@ -211,17 +198,15 @@ namespace ASC.Web.CRM.Masters.ClientScripts
 
         protected override IEnumerable<KeyValuePair<string, object>> GetClientVariables(HttpContext context)
         {
-
             var taskCategories = Global.DaoFactory.GetListItemDao().GetItems(ListType.TaskCategory);
-           
-            yield return RegisterObject("taskCategories", 
+
+            yield return RegisterObject("taskCategories",
                                         taskCategories.ConvertAll(item => new
-                                        {
-                                            value = item.ID,
-                                            title = item.Title.HtmlEncode(),
-                                            cssClass = "task_category " + item.AdditionalParams.Split('.').FirstOrDefault()
-                                        })
-                
+                                            {
+                                                value = item.ID,
+                                                title = item.Title.HtmlEncode(),
+                                                cssClass = "task_category " + item.AdditionalParams.Split('.').FirstOrDefault()
+                                            })
                 );
         }
     }
@@ -243,12 +228,12 @@ namespace ASC.Web.CRM.Masters.ClientScripts
             var taskCategories = Global.DaoFactory.GetListItemDao().GetItems(ListType.TaskCategory);
 
             yield return RegisterObject("taskActionViewCategories",
-                                        taskCategories.ConvertAll (item => new
-                                        {
-                                            id = item.ID,
-                                            title = item.Title.HtmlEncode(),
-                                            cssClass = "task_category " + item.AdditionalParams.Split('.').FirstOrDefault()
-                                        }));
+                                        taskCategories.ConvertAll(item => new
+                                            {
+                                                id = item.ID,
+                                                title = item.Title.HtmlEncode(),
+                                                cssClass = "task_category " + item.AdditionalParams.Split('.').FirstOrDefault()
+                                            }));
         }
     }
 
@@ -256,7 +241,7 @@ namespace ASC.Web.CRM.Masters.ClientScripts
 
     #region classes for Cases Views
 
-    public class ListCasesViewData: ClientScript
+    public class ListCasesViewData : ClientScript
     {
         protected override string BaseNamespace
         {
@@ -273,10 +258,10 @@ namespace ASC.Web.CRM.Masters.ClientScripts
             var tags = Global.DaoFactory.GetTagDao().GetAllTags(EntityType.Case).ToList();
 
             yield return RegisterObject("caseTags", tags.ConvertAll(item => new
-                                                    {
-                                                        value = item.HtmlEncode(),
-                                                        title = item.HtmlEncode()
-                                                    }));
+                {
+                    value = item.HtmlEncode(),
+                    title = item.HtmlEncode()
+                }));
         }
     }
 
@@ -284,7 +269,7 @@ namespace ASC.Web.CRM.Masters.ClientScripts
 
     #region classes for Opportunity Views
 
-    public class ListDealViewData: ClientScript
+    public class ListDealViewData : ClientScript
     {
         protected override string BaseNamespace
         {
@@ -302,22 +287,22 @@ namespace ASC.Web.CRM.Masters.ClientScripts
             var tags = Global.DaoFactory.GetTagDao().GetAllTags(EntityType.Opportunity).ToList();
 
             yield return RegisterObject("dealMilestones", dealMilestones.ConvertAll(
-                                                            item => new
-                                                            {
-                                                                value = item.ID,
-                                                                title = item.Title,
-                                                                classname = "colorFilterItem color_" + item.Color.Replace("#", "").ToLower()
-                                                            }));
+                item => new
+                    {
+                        value = item.ID,
+                        title = item.Title,
+                        classname = "colorFilterItem color_" + item.Color.Replace("#", "").ToLower()
+                    }));
             yield return RegisterObject("dealTags", tags.ConvertAll(
-                                                            item => new
-                                                            {
-                                                                value = item.HtmlEncode(),
-                                                                title = item.HtmlEncode()
-                                                            }));
+                item => new
+                    {
+                        value = item.HtmlEncode(),
+                        title = item.HtmlEncode()
+                    }));
         }
     }
 
-    public class ExchangeRateViewData: ClientScript
+    public class ExchangeRateViewData : ClientScript
     {
         protected override string BaseNamespace
         {
@@ -343,7 +328,7 @@ namespace ASC.Web.CRM.Masters.ClientScripts
 
     #region Data for History View
 
-    public class HistoryViewData: ClientScript
+    public class HistoryViewData : ClientScript
     {
         protected override string BaseNamespace
         {
@@ -361,35 +346,38 @@ namespace ASC.Web.CRM.Masters.ClientScripts
             var systemCategories = Global.DaoFactory.GetListItemDao().GetSystemItems();
 
             yield return RegisterObject("eventsCategories", eventsCategories.ConvertAll
-                                                        (item => new
-                                                        {
-                                                            id = item.ID,
-                                                            value = item.ID,
-                                                            title = item.Title.HtmlEncode(),
-                                                            cssClass = "event_category " + item.AdditionalParams.Split('.').FirstOrDefault()
-                                                        }
-                                                        ));
+                                                                (item => new
+                                                                    {
+                                                                        id = item.ID,
+                                                                        value = item.ID,
+                                                                        title = item.Title.HtmlEncode(),
+                                                                        cssClass = "event_category " + item.AdditionalParams.Split('.').FirstOrDefault()
+                                                                    }
+                                                                ));
             yield return RegisterObject("systemCategories", systemCategories.ConvertAll
-                                                        (item => new
-                                                        {
-                                                            id = item.ID,
-                                                            value = item.ID,
-                                                            title = item.Title.HtmlEncode(),
-                                                            cssClass = "event_category " + item.AdditionalParams.Split('.').FirstOrDefault()
-                                                        }
-                                                        ));
-            yield return RegisterObject("historyEntityTypes", new[] {
-                                                            new {
-                                                                value = (int)EntityType.Opportunity,
-                                                                displayname = CRMDealResource.Deal,
-                                                                apiname = EntityType.Opportunity.ToString().ToLower()
-                                                            },
-                                                            new {
-                                                                value = (int)EntityType.Case,
-                                                                displayname = CRMCasesResource.Case,
-                                                                apiname = EntityType.Case.ToString().ToLower()
-                                                            }
-                                                        });
+                                                                (item => new
+                                                                    {
+                                                                        id = item.ID,
+                                                                        value = item.ID,
+                                                                        title = item.Title.HtmlEncode(),
+                                                                        cssClass = "event_category " + item.AdditionalParams.Split('.').FirstOrDefault()
+                                                                    }
+                                                                ));
+            yield return RegisterObject("historyEntityTypes", new[]
+                {
+                    new
+                        {
+                            value = (int)EntityType.Opportunity,
+                            displayname = CRMDealResource.Deal,
+                            apiname = EntityType.Opportunity.ToString().ToLower()
+                        },
+                    new
+                        {
+                            value = (int)EntityType.Case,
+                            displayname = CRMCasesResource.Case,
+                            apiname = EntityType.Case.ToString().ToLower()
+                        }
+                });
         }
     }
 
@@ -397,7 +385,7 @@ namespace ASC.Web.CRM.Masters.ClientScripts
 
     #region Data for Invoice Views
 
-    public class ListInvoiceViewData: ClientScript
+    public class ListInvoiceViewData : ClientScript
     {
         protected override string BaseNamespace
         {
@@ -411,35 +399,40 @@ namespace ASC.Web.CRM.Masters.ClientScripts
 
         protected override IEnumerable<KeyValuePair<string, object>> GetClientVariables(HttpContext context)
         {
-            yield return RegisterObject("invoiceStatuses", new[] {
-                                                            new {
-                                                                value = (int)InvoiceStatus.Draft,
-                                                                displayname = InvoiceStatus.Draft.ToLocalizedString(),
-                                                                apiname = InvoiceStatus.Draft.ToString().ToLower()
-                                                            },
-                                                            new {
-                                                                value = (int)InvoiceStatus.Sent,
-                                                                displayname = InvoiceStatus.Sent.ToLocalizedString(),
-                                                                apiname = InvoiceStatus.Sent.ToString().ToLower()
-                                                            },
-                                                            new {
-                                                                value = (int)InvoiceStatus.Rejected,
-                                                                displayname = InvoiceStatus.Rejected.ToLocalizedString(),
-                                                                apiname = InvoiceStatus.Rejected.ToString().ToLower()
-                                                            },
-                                                            new {
-                                                                value = (int)InvoiceStatus.Paid,
-                                                                displayname = InvoiceStatus.Paid.ToLocalizedString(),
-                                                                apiname = InvoiceStatus.Paid.ToString().ToLower()
-                                                            }
-                                                        });
+            yield return RegisterObject("invoiceStatuses", new[]
+                {
+                    new
+                        {
+                            value = (int)InvoiceStatus.Draft,
+                            displayname = InvoiceStatus.Draft.ToLocalizedString(),
+                            apiname = InvoiceStatus.Draft.ToString().ToLower()
+                        },
+                    new
+                        {
+                            value = (int)InvoiceStatus.Sent,
+                            displayname = InvoiceStatus.Sent.ToLocalizedString(),
+                            apiname = InvoiceStatus.Sent.ToString().ToLower()
+                        },
+                    new
+                        {
+                            value = (int)InvoiceStatus.Rejected,
+                            displayname = InvoiceStatus.Rejected.ToLocalizedString(),
+                            apiname = InvoiceStatus.Rejected.ToString().ToLower()
+                        },
+                    new
+                        {
+                            value = (int)InvoiceStatus.Paid,
+                            displayname = InvoiceStatus.Paid.ToLocalizedString(),
+                            apiname = InvoiceStatus.Paid.ToString().ToLower()
+                        }
+                });
 
 
             yield return RegisterObject("currencies", CurrencyProvider.GetAll());
         }
     }
 
-    public class InvoiceItemActionViewData: ClientScript
+    public class InvoiceItemActionViewData : ClientScript
     {
         protected override string BaseNamespace
         {
@@ -455,7 +448,6 @@ namespace ASC.Web.CRM.Masters.ClientScripts
         {
             //yield return RegisterObject("currencies", CurrencyProvider.GetAll());
             yield return RegisterObject("taxes", Global.DaoFactory.GetInvoiceTaxDao().GetAll());
-            
         }
     }
 
@@ -463,7 +455,7 @@ namespace ASC.Web.CRM.Masters.ClientScripts
 
     #region Data for CRM Settings Views
 
-    public class OrganisationProfileViewData: ClientScript
+    public class OrganisationProfileViewData : ClientScript
     {
         protected override string BaseNamespace
         {
@@ -482,10 +474,12 @@ namespace ASC.Web.CRM.Masters.ClientScripts
 
             yield return RegisterObject("InvoiceSetting", settings);
             yield return RegisterObject("InvoiceSetting_logo_src", logo_base64);
+            yield return RegisterObject("CountryListExt", Global.GetCountryListExt());
+            yield return RegisterObject("CurrentCultureName", new RegionInfo(CultureInfo.CurrentCulture.Name).EnglishName);
         }
     }
 
-    public class WebToLeadFormViewData: ClientScript
+    public class WebToLeadFormViewData : ClientScript
     {
         protected override string BaseNamespace
         {
@@ -503,35 +497,35 @@ namespace ASC.Web.CRM.Masters.ClientScripts
                 {
                     new
                         {
-                            type= -1,
+                            type = -1,
                             name = "firstName",
                             title = CRMContactResource.FirstName,
                             mask = ""
                         },
                     new
                         {
-                            type= -1,
+                            type = -1,
                             name = "lastName",
                             title = CRMContactResource.LastName,
                             mask = ""
                         },
                     new
                         {
-                            type= -1,
+                            type = -1,
                             name = "jobTitle",
                             title = CRMContactResource.JobTitle,
                             mask = ""
                         },
                     new
                         {
-                            type= -1,
+                            type = -1,
                             name = "companyName",
                             title = CRMContactResource.CompanyName,
                             mask = ""
                         },
                     new
                         {
-                            type= -1,
+                            type = -1,
                             name = "about",
                             title = CRMContactResource.About,
                             mask = ""
@@ -547,7 +541,7 @@ namespace ASC.Web.CRM.Masters.ClientScripts
                     foreach (AddressPart addressPartEnum in Enum.GetValues(typeof(AddressPart)))
                         columnSelectorData.Add(new
                             {
-                                type= -1,
+                                type = -1,
                                 name = String.Format(localName + "_{0}_{1}", addressPartEnum, (int)AddressCategory.Work),
                                 title = String.Format(localTitle + " {0}", addressPartEnum.ToLocalizedString().ToLower()),
                                 mask = ""
@@ -555,7 +549,7 @@ namespace ASC.Web.CRM.Masters.ClientScripts
                 else
                     columnSelectorData.Add(new
                         {
-                            type= -1,
+                            type = -1,
                             name = localName,
                             title = localTitle,
                             mask = ""
@@ -566,31 +560,31 @@ namespace ASC.Web.CRM.Masters.ClientScripts
             var columnSelectorDataPerson = columnSelectorData.GetRange(0, columnSelectorData.Count).ToList();
 
             columnSelectorDataCompany.AddRange(Global.DaoFactory.GetCustomFieldDao().GetFieldsDescription(EntityType.Company)
-                                              .FindAll(customField => 
-                                                  customField.FieldType == CustomFieldType.TextField ||
-                                                  customField.FieldType == CustomFieldType.TextArea ||
-                                                  customField.FieldType == CustomFieldType.CheckBox ||
-                                                  customField.FieldType == CustomFieldType.SelectBox)
-                                              .ConvertAll(customField => new
-                                                  {
-                                                      type = (int)customField.FieldType,
-                                                      name = "customField_" + customField.ID,
-                                                      title = customField.Label,
-                                                      mask = customField.Mask
-                                                  }));
+                                                     .FindAll(customField =>
+                                                              customField.FieldType == CustomFieldType.TextField ||
+                                                              customField.FieldType == CustomFieldType.TextArea ||
+                                                              customField.FieldType == CustomFieldType.CheckBox ||
+                                                              customField.FieldType == CustomFieldType.SelectBox)
+                                                     .ConvertAll(customField => new
+                                                         {
+                                                             type = (int)customField.FieldType,
+                                                             name = "customField_" + customField.ID,
+                                                             title = customField.Label,
+                                                             mask = customField.Mask
+                                                         }));
             columnSelectorDataPerson.AddRange(Global.DaoFactory.GetCustomFieldDao().GetFieldsDescription(EntityType.Person)
-                                              .FindAll(customField => 
-                                                  customField.FieldType == CustomFieldType.TextField ||
-                                                  customField.FieldType == CustomFieldType.TextArea ||
-                                                  customField.FieldType == CustomFieldType.CheckBox ||
-                                                  customField.FieldType == CustomFieldType.SelectBox)
-                                              .ConvertAll(customField => new
-                                                  {
-                                                      type = (int)customField.FieldType,
-                                                      name = "customField_" + customField.ID,
-                                                      title = customField.Label,
-                                                      mask = customField.Mask
-                                                  }));
+                                                    .FindAll(customField =>
+                                                             customField.FieldType == CustomFieldType.TextField ||
+                                                             customField.FieldType == CustomFieldType.TextArea ||
+                                                             customField.FieldType == CustomFieldType.CheckBox ||
+                                                             customField.FieldType == CustomFieldType.SelectBox)
+                                                    .ConvertAll(customField => new
+                                                        {
+                                                            type = (int)customField.FieldType,
+                                                            name = "customField_" + customField.ID,
+                                                            title = customField.Label,
+                                                            mask = customField.Mask
+                                                        }));
 
             var tagList = Global.DaoFactory.GetTagDao().GetAllTags(EntityType.Contact);
 
@@ -602,9 +596,9 @@ namespace ASC.Web.CRM.Masters.ClientScripts
 
     #endregion
 
-    #region Data for CRM Settings Views
+    #region Data for CRM Import From CSV Views
 
-    public class ImportFromCSVViewDataContacts: ClientScript
+    public class ImportFromCSVViewDataContacts : ClientScript
     {
         protected override string BaseNamespace
         {
@@ -618,7 +612,6 @@ namespace ASC.Web.CRM.Masters.ClientScripts
 
         protected override IEnumerable<KeyValuePair<string, object>> GetClientVariables(HttpContext context)
         {
-            
             var columnSelectorData = new[]
                 {
                     new
@@ -717,12 +710,12 @@ namespace ASC.Web.CRM.Masters.ClientScripts
                 });
 
             columnSelectorData.AddRange(fieldsDescription
-                                        .ConvertAll(customField => new
-                                            {
-                                                name = "customField_" + customField.ID,
-                                                title = customField.Label.HtmlEncode(),
-                                                isHeader = customField.FieldType == CustomFieldType.Heading
-                                            }));
+                                            .ConvertAll(customField => new
+                                                {
+                                                    name = "customField_" + customField.ID,
+                                                    title = customField.Label.HtmlEncode(),
+                                                    isHeader = customField.FieldType == CustomFieldType.Heading
+                                                }));
 
             columnSelectorData.AddRange(
                 new[]
@@ -798,15 +791,18 @@ namespace ASC.Web.CRM.Masters.ClientScripts
                                 name = "tag",
                                 title = String.Format("{0} {1}", CRMContactResource.ContactTag, 10),
                                 isHeader = false
-                            },
+                            }
                     }.ToList()
                 );
 
+            var tagList = Global.DaoFactory.GetTagDao().GetAllTags(EntityType.Contact);
+
+            yield return RegisterObject("tagList", tagList.ToList());
             yield return RegisterObject("columnSelectorData", columnSelectorData);
         }
     }
 
-    public class ImportFromCSVViewDataTasks: ClientScript
+    public class ImportFromCSVViewDataTasks : ClientScript
     {
         protected override string BaseNamespace
         {
@@ -894,7 +890,7 @@ namespace ASC.Web.CRM.Masters.ClientScripts
         }
     }
 
-    public class ImportFromCSVViewDataCases: ClientScript
+    public class ImportFromCSVViewDataCases : ClientScript
     {
         protected override string BaseNamespace
         {
@@ -938,12 +934,12 @@ namespace ASC.Web.CRM.Masters.ClientScripts
 
             var fieldsDescription = Global.DaoFactory.GetCustomFieldDao().GetFieldsDescription(EntityType.Case);
             columnSelectorData.AddRange(fieldsDescription
-                                        .ConvertAll(customField => new
-                                                      {
-                                                          name = "customField_" + customField.ID,
-                                                          title = customField.Label.HtmlEncode(),
-                                                          isHeader = customField.FieldType == CustomFieldType.Heading
-                                                      }));
+                                            .ConvertAll(customField => new
+                                                {
+                                                    name = "customField_" + customField.ID,
+                                                    title = customField.Label.HtmlEncode(),
+                                                    isHeader = customField.FieldType == CustomFieldType.Heading
+                                                }));
 
             columnSelectorData.AddRange(
                 new[]
@@ -1094,11 +1090,14 @@ namespace ASC.Web.CRM.Masters.ClientScripts
                     }
                 );
 
+            var tagList = Global.DaoFactory.GetTagDao().GetAllTags(EntityType.Case);
+
+            yield return RegisterObject("tagList", tagList.ToList());
             yield return RegisterObject("columnSelectorData", columnSelectorData);
         }
     }
 
-    public class ImportFromCSVViewDataDeals: ClientScript
+    public class ImportFromCSVViewDataDeals : ClientScript
     {
         protected override string BaseNamespace
         {
@@ -1209,12 +1208,12 @@ namespace ASC.Web.CRM.Masters.ClientScripts
 
             var fieldsDescription = Global.DaoFactory.GetCustomFieldDao().GetFieldsDescription(EntityType.Opportunity);
             columnSelectorData.AddRange(fieldsDescription
-                                        .ConvertAll(customField => new
-                                                      {
-                                                          name = "customField_" + customField.ID,
-                                                          title = customField.Label.HtmlEncode(),
-                                                          isHeader = customField.FieldType == CustomFieldType.Heading
-                                                      }));
+                                            .ConvertAll(customField => new
+                                                {
+                                                    name = "customField_" + customField.ID,
+                                                    title = customField.Label.HtmlEncode(),
+                                                    isHeader = customField.FieldType == CustomFieldType.Heading
+                                                }));
             columnSelectorData.AddRange(
                 new[]
                     {
@@ -1360,10 +1359,13 @@ namespace ASC.Web.CRM.Masters.ClientScripts
                                 name = "tag",
                                 title = String.Format("{0} {1}", CRMDealResource.DealTag, 10),
                                 isHeader = false
-                            },
+                            }
                     }
                 );
 
+            var tagList = Global.DaoFactory.GetTagDao().GetAllTags(EntityType.Opportunity);
+
+            yield return RegisterObject("tagList", tagList.ToList());
             yield return RegisterObject("columnSelectorData", columnSelectorData);
         }
     }

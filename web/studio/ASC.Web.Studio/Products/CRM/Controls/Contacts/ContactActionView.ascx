@@ -5,16 +5,12 @@
 <%@ Assembly Name="ASC.Web.Core" %>
 <%@ Import Namespace="ASC.CRM.Core" %>
 <%@ Import Namespace="ASC.CRM.Core.Entities" %>
-<%@ Import Namespace="ASC.Web.Core.Utility.Skins" %>
 <%@ Import Namespace="ASC.Web.CRM" %>
 <%@ Import Namespace="ASC.Web.CRM.Classes" %>
-<%@ Import Namespace="ASC.Web.CRM.Configuration" %>
 <%@ Import Namespace="ASC.Web.CRM.Resources" %>
 <%@ Assembly Name="ASC.Common" %>
 <%@ Assembly Name="ASC.Core.Common" %>
-<%@ Register Src="../SocialMedia/ContactsSearchView.ascx" TagPrefix="ctrl" TagName="ContactsSearchView" %>
 
-<ctrl:ContactsSearchView runat="server" ID="_ctrlCompaniesSearchView"></ctrl:ContactsSearchView>
 
 <div id="crm_contactMakerDialog">
     <input type="hidden" name="typeAddedContact" id="typeAddedContact" value="<%= TypeAddedContact %>" />
@@ -46,12 +42,9 @@
                         </div>
                     </td>
                     <td style="padding-left:10px;">
-                        <div class="requiredField">
-                            <span class="requiredErrorText"><%= CRMContactResource.ErrorEmptyContactLastName%></span>
-                            <div class="headerPanelSmall"><%= CRMContactResource.LastName%></div>
-                            <input type="text" class="textEdit generalField" name="baseInfo_lastName" maxlength="100"
-                                value="<%= GetLastName() %>"/>
-                        </div>
+                        <div class="bold"><%= CRMContactResource.LastName%></div>
+                        <input type="text" class="textEdit generalField" name="baseInfo_lastName" maxlength="100"
+                            value="<%= GetLastName() %>"/>
                     </td>
                 </tr>
                 <tr>
@@ -111,7 +104,7 @@
             <% } %>
 
                 <dl id="generalListEdit" class="headerPanelSmall-splitter clearFix">
-                    <dt class="bold crm-withGrayPlus"><%= CRMContactResource.ContactType %></dt>
+                    <dt class="bold crm-headerHiddenToggledBlock"><%= CRMContactResource.ContactType %></dt>
                     <dd id="contactTypeContainer">
                         <div class="display-none">
                             <select class="contactTypeSelect comboBox" name="baseInfo_contactType">
@@ -122,7 +115,7 @@
 
 
 
-                    <dt class="bold crm-withGrayPlus"><%= ContactInfoType.Email.ToLocalizedString()%></dt>
+                    <dt class="bold crm-headerHiddenToggledBlock"><%= ContactInfoType.Email.ToLocalizedString()%></dt>
                     <dd id="emailContainer" onclick="ASC.CRM.ContactActionView.editCommunicationsEvent(event, jq(this).attr('id'))">
                         <div style="display:none !important;">
                             <table class="borderBase input_with_type" cellpadding="0" cellspacing="0">
@@ -141,7 +134,7 @@
                     </dd>
 
 
-                    <dt class="bold crm-withGrayPlus"><%= ContactInfoType.Phone.ToLocalizedString()%></dt>
+                    <dt class="bold crm-headerHiddenToggledBlock"><%= ContactInfoType.Phone.ToLocalizedString()%></dt>
                     <dd id="phoneContainer" onclick="ASC.CRM.ContactActionView.editCommunicationsEvent(event, jq(this).attr('id'))">
                         <div style="display:none !important;">
                             <table class="borderBase input_with_type" cellpadding="0" cellspacing="0">
@@ -160,7 +153,7 @@
                     </dd>
 
 
-                    <dt class="bold crm-withGrayPlus"><%= CRMContactResource.ContactWebSiteAndSocialProfiles%></dt>
+                    <dt class="bold crm-headerHiddenToggledBlock"><%= CRMContactResource.ContactWebSiteAndSocialProfiles%></dt>
                     <dd id="websiteAndSocialProfilesContainer" onclick="ASC.CRM.ContactActionView.editCommunicationsEvent(event, jq(this).attr('id'))">
                         <div style="display: none !important;">
                             <table class="borderBase input_with_type" cellpadding="0" cellspacing="0">
@@ -189,7 +182,7 @@
                     </dd>
 
 
-                    <dt class="bold crm-withGrayPlus"><%= ContactInfoType.Address.ToLocalizedString()%></dt>
+                    <dt class="bold crm-headerHiddenToggledBlock"><%= ContactInfoType.Address.ToLocalizedString()%></dt>
                     <dd id="addressContainer" onclick="ASC.CRM.ContactActionView.editAddressEvent(event)">
                         <div style="display:none !important;" selectname="contactInfo_Address_0_<%= (int)AddressCategory.Billing + "_"  + AddressPart.Country%>_0">
                             <table class="address-tbl" cellpadding="0" cellspacing="0">
@@ -236,23 +229,21 @@
                                     </tr>
                                     <tr>
                                         <td class="select-cell" colspan="2">
-                                            <select id="contactCountry" class="contact_country comboBox" runat="server">
+                                            <select id="contactCountry" name="contactCountry" class="contact_country comboBox">
                                             </select>
                                         </td>
                                     </tr>
                                 </tbody>
                             </table>
                             <div class="actions_for_item">
-                                <a class="crm-deleteLink" alt="<%=CRMCommonResource.Delete%>" title="<%=CRMCommonResource.Delete%>"></a>
-                                <a class="is_primary not_primary_field"
-                                    title="<%=CRMJSResource.CheckAsPrimary%>" alt="<%=CRMJSResource.CheckAsPrimary%>"></a>
-                                <a class="crm-addNewLink"
-                                    title="<%=CRMContactResource.AddNewAddress%>" alt="<%=CRMContactResource.AddNewAddress%>"></a>
+                                <a class="crm-deleteLink" title="<%=CRMCommonResource.Delete%>"></a>
+                                <a class="is_primary not_primary_field" title="<%=CRMJSResource.CheckAsPrimary%>"></a>
+                                <a class="crm-addNewLink" title="<%=CRMContactResource.AddNewAddress%>"></a>
                             </div>
                         </div>
                     </dd>
 
-                    <dt class="bold crm-withGrayPlus"><%= CRMCommonResource.Tags %></dt>
+                    <dt class="bold crm-headerHiddenToggledBlock"><%= CRMCommonResource.Tags %></dt>
                     <dd id="tagsContainer">
                         <div class="display-none">
                             <input type="hidden" name="baseInfo_assignedTags" />
@@ -260,7 +251,7 @@
                     </dd>
 
 
-                    <dt class="bold crm-withGrayPlus"><%= CRMCommonResource.Currency %></dt>
+                    <dt class="bold crm-headerHiddenToggledBlock"><%= CRMCommonResource.Currency %></dt>
                     <dd id="currencyContainer">
                         <div class="display-none">
                             <select class="currencySelect comboBox" name="baseInfo_currency">
@@ -270,7 +261,7 @@
                     </dd>
 
 
-                    <dt <%= (TargetContact != null && !String.IsNullOrEmpty(TargetContact.About)) ? "class='bold'": "class='bold crm-withGrayPlus'"%> ><%= CRMContactResource.Overview%></dt>
+                    <dt <%= (TargetContact != null && !String.IsNullOrEmpty(TargetContact.About)) ? "class='bold'": "class='bold crm-headerHiddenToggledBlock'"%> ><%= CRMContactResource.Overview%></dt>
                     <dd id="overviewContainer" onclick="ASC.CRM.ContactActionView.editCommunicationsEvent(event, jq(this).attr('id'))">
                         <div style="display:none !important;">
                             <textarea type="text" rows="4" name="baseInfo_contactOverview" class="textEdit baseInfo_contactOverview"></textarea>
@@ -359,7 +350,7 @@
 
                         <% if(!MobileVer) { %>
                         <div class="under_logo">
-                            <a onclick="ASC.CRM.SocialMedia.OpenLoadPhotoWindow(); return false;" class="linkChangePhoto grey-phone">
+                            <a onclick="ASC.CRM.ContactActionView.prepareSocialNetworks(); ASC.CRM.SocialMedia.OpenLoadPhotoWindow(); return false;" class="linkChangePhoto grey-phone">
                                  <span class="bold"><%= CRMContactResource.ChangePhoto%></span>
                             </a>
                         </div>
@@ -397,7 +388,6 @@
 
 
 <div id="phoneCategoriesPanel" class="studio-action-panel">
-    <div class="corner-top left"></div>
     <ul class="dropdown-content">
     <% foreach (PhoneCategory item in Enum.GetValues(typeof(PhoneCategory))) %>
     <% { %>
@@ -407,7 +397,6 @@
 </div>
 
 <div id="baseCategoriesPanel" class="studio-action-panel">
-    <div class="corner-top left"></div>
     <ul class="dropdown-content">
     <% foreach (ContactInfoBaseCategory item in Enum.GetValues(typeof(ContactInfoBaseCategory))) %>
     <% { %>
@@ -417,7 +406,6 @@
 </div>
 
 <div id="socialProfileCategoriesPanel" class="studio-action-panel">
-    <div class="corner-top left"></div>
     <ul class="dropdown-content">
     <% foreach (var item in ContactInfoTypes) %>
     <% { %>
@@ -431,7 +419,6 @@
 </div>
 
 <div id="divSMProfilesWindow" class="borderBase">
-    <div class="popup-corner-left"></div>
     <div class="header-base-medium divHeader">
         <span></span>
         <label class="cancel_cross" title="<%= CRMCommonResource.CloseWindow%>" onclick="jq('#divSMProfilesWindow').hide();"></label>
@@ -440,12 +427,10 @@
         <table id="sm_tbl_UserList">
         </table>
         <div class="divWait">
-            <span class="loader-text-block"><%= CRMSocialMediaResource.PleaseWait%></span>
+            <span class="loader-text-block"><%= CRMSocialMediaResource.PleaseWait%></span>            
         </div>
         <div class="divNoProfiles">
             <%= UrlParameters.Type == "people" ? CRMSocialMediaResource.NoAccountsHasBeenFound : CRMSocialMediaResource.NoCompaniesHasBeenFound%>
         </div>
     </div>
 </div>
-
-<input type="hidden" id="_ctrlLinkedInAccountsInfo" />
